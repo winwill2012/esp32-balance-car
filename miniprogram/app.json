@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "平衡车调参",
+    "navigationBarBackgroundColor": "#1a1a1a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0f0f0f",
+    "backgroundTextStyle": "light"
+  },
+  "permission": {
+    "scope.bluetooth": {
+      "desc": "用于连接 ESP32 平衡车并调整 PID 参数"
+    }
+  },
+  "requiredPrivateInfos": [],
+  "sitemapLocation": "sitemap.json"
+}

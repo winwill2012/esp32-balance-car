@@ -1,0 +1,265 @@
+.page {
+  min-height: 100vh;
+  padding: 48rpx 40rpx 80rpx;
+  background:
+    radial-gradient(120% 80% at 10% -10%, rgba(61, 214, 140, 0.18), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, rgba(91, 156, 255, 0.16), transparent 50%),
+    #0f0f0f;
+}
+
+.hero {
+  margin-bottom: 40rpx;
+}
+
+.brand {
+  display: block;
+  font-size: 56rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  color: #f5f5f5;
+}
+
+.sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #9a9a9a;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 28rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 28rpx;
+  color: #bdbdbd;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+}
+
+.badge.on {
+  background: rgba(61, 214, 140, 0.15);
+  color: #3dd68c;
+}
+
+.badge.off {
+  background: rgba(255, 255, 255, 0.06);
+  color: #888;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.device-line {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: #777;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 28rpx;
+}
+
+.actions.bottom {
+  margin-top: 8rpx;
+}
+
+.btn {
+  flex: 1;
+  margin: 0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  line-height: 2.4;
+}
+
+.btn::after {
+  border: none;
+}
+
+.btn.primary {
+  background: #3dd68c;
+  color: #0b1a12;
+  font-weight: 600;
+}
+
+.btn.primary[disabled] {
+  background: #2a3d33;
+  color: #6a8a78;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: #ddd;
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+}
+
+.btn.ghost[disabled] {
+  color: #555;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.meter-card {
+  display: flex;
+  align-items: stretch;
+  padding: 28rpx 16rpx;
+}
+
+.meter-item {
+  flex: 1;
+  text-align: center;
+}
+
+.meter-divider {
+  width: 1rpx;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.meter-label {
+  display: block;
+  font-size: 24rpx;
+  color: #888;
+  margin-bottom: 8rpx;
+}
+
+.meter-value {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #f0f0f0;
+}
+
+.meter-value.accent {
+  color: #ffb454;
+}
+
+.section-label {
+  margin: 8rpx 0 16rpx;
+  font-size: 24rpx;
+  color: #888;
+  letter-spacing: 1rpx;
+}
+
+.param-card {
+  padding-bottom: 24rpx;
+}
+
+.param-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.param-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.param-input {
+  width: 180rpx;
+  text-align: right;
+  font-size: 32rpx;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12rpx;
+  padding: 8rpx 16rpx;
+}
+
+.quick-row {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.quick-row.wrap {
+  flex-wrap: wrap;
+}
+
+.qbtn {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  min-height: 64rpx;
+  line-height: 64rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #e8e8e8;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 14rpx;
+}
+
+.qbtn::after {
+  border: none;
+}
+
+.qbtn[disabled] {
+  color: #555;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.qbtn.preset {
+  flex: 0 0 calc(50% - 6rpx);
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.preset-card {
+  padding-bottom: 28rpx;
+}
+
+.preset-title {
+  display: block;
+  margin-bottom: 4rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #cfcfcf;
+}
+
+.hint {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #666;
+}
+
+.tips {
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  color: #555;
+  line-height: 1.6;
+}
+
+.tips .last {
+  display: block;
+  margin-top: 8rpx;
+  color: #7a7a7a;
+}
