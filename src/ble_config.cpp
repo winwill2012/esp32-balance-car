@@ -16,38 +16,47 @@ Preferences prefs;
 float *gKp = nullptr;
 float *gKd = nullptr;
 float *gKv = nullptr;
-float *gMaxLean = nullptr;
+float *gTargetSpeed = nullptr;
+float *gTurnPwm = nullptr;
+float *gSpeedSlew = nullptr;
 bool gConnected = false;
+
+void clearMotionCmd() {
+    if (gTargetSpeed) {
+        *gTargetSpeed = 0.0f;
+    }
+    if (gTurnPwm) {
+        *gTurnPwm = 0.0f;
+    }
+}
 
 BLEServer *gServer = nullptr;
 BLECharacteristic *gCmdChar = nullptr;
 BLECharacteristic *gStatusChar = nullptr;
 
-void applyParams(float kp, float kd, float kv, float maxLean) {
-    if (!gKp || !gKd || !gKv || !gMaxLean) {
+void applyParams(float kp, float kd, float kv) {
+    if (!gKp || !gKd || !gKv) {
         return;
     }
     *gKp = kp;
     *gKd = kd;
     *gKv = kv;
-    *gMaxLean = maxLean;
-    Serial.printf("[BLE] 参数已更新 kp=%.3f kd=%.3f kv=%.4f ml=%.2f\n", kp, kd, kv, maxLean);
+    Serial.printf("[BLE] 参数已更新 kp=%.3f kd=%.3f kv=%.4f\n", kp, kd, kv);
 }
 
 void persistParams() {
-    if (!gKp || !gKd || !gKv || !gMaxLean) {
+    if (!gKp || !gKd || !gKv) {
         return;
     }
     prefs.begin("pid", false);
     prefs.putFloat("kp", *gKp);
     prefs.putFloat("kd", *gKd);
     prefs.putFloat("kv", *gKv);
-    prefs.putFloat("ml", *gMaxLean);
     prefs.end();
 }
 
 void loadParamsFromNvs() {
-    if (!gKp || !gKd || !gKv || !gMaxLean) {
+    if (!gKp || !gKd || !gKv) {
         return;
     }
     prefs.begin("pid", true);
@@ -60,30 +69,29 @@ void loadParamsFromNvs() {
     if (prefs.isKey("kv")) {
         *gKv = prefs.getFloat("kv", *gKv);
     }
-    if (prefs.isKey("ml")) {
-        *gMaxLean = prefs.getFloat("ml", *gMaxLean);
-    }
     prefs.end();
-    Serial.printf("[BLE] NVS 加载 kp=%.3f kd=%.3f kv=%.4f ml=%.2f\n",
-                  *gKp, *gKd, *gKv, *gMaxLean);
+    Serial.printf("[BLE] NVS 加载 kp=%.3f kd=%.3f kv=%.4f\n", *gKp, *gKd, *gKv);
 }
 
 void replyStatus(const char *prefix) {
-    if (!gStatusChar || !gKp || !gKd || !gKv || !gMaxLean) {
+    if (!gStatusChar || !gKp || !gKd || !gKv) {
         return;
     }
-    char buf[128];
-    snprintf(buf, sizeof(buf), "%sKP=%.3f,KD=%.3f,KV=%.4f,ML=%.2f",
-             prefix ? prefix : "", *gKp, *gKd, *gKv, *gMaxLean);
+    char buf[96];
+    snprintf(buf, sizeof(buf), "%sKP=%.3f,KD=%.3f,KV=%.4f",
+             prefix ? prefix : "", *gKp, *gKd, *gKv);
     gStatusChar->setValue(buf);
     gStatusChar->notify();
 }
 
 /**
  * 支持指令（大小写不敏感）:
- *   KP= / KD= / KV= / ML=
+ *   KP= / KD= / KV=
  *   SET=kp,kd            （兼容旧协议）
- *   SET=kp,kd,kv,ml
+ *   SET=kp,kd,kv
+ *   SPD=xx               （目标速度，前正后负）
+ *   TRN=xx               （转向差速 turnPwm，右正左负）
+ *   SLW=xx               （急刹强度 / 目标速度斜坡，值越大越剧烈）
  *   GET / SAVE
  */
 void handleCommand(const std::string &raw) {
@@ -113,39 +121,55 @@ void handleCommand(const std::string &raw) {
     }
 
     if (strncmp(line, "SET=", 4) == 0) {
-        float kp = 0, kd = 0, kv = 0, ml = 0;
-        const int matched = sscanf(line + 4, "%f,%f,%f,%f", &kp, &kd, &kv, &ml);
-        if (matched == 4) {
-            applyParams(kp, kd, kv, ml);
+        float kp = 0, kd = 0, kv = 0, ignored = 0;
+        const int matched = sscanf(line + 4, "%f,%f,%f,%f", &kp, &kd, &kv, &ignored);
+        if (matched >= 3) {
+            applyParams(kp, kd, kv);
             replyStatus("OK ");
-        } else if (matched == 2 && gKv && gMaxLean) {
-            applyParams(kp, kd, *gKv, *gMaxLean);
+        } else if (matched == 2 && gKv) {
+            applyParams(kp, kd, *gKv);
             replyStatus("OK ");
         }
         return;
     }
 
-    if (strncmp(line, "KP=", 3) == 0 && gKp && gKd && gKv && gMaxLean) {
-        applyParams(static_cast<float>(atof(line + 3)), *gKd, *gKv, *gMaxLean);
+    if (strncmp(line, "KP=", 3) == 0 && gKp && gKd && gKv) {
+        applyParams(static_cast<float>(atof(line + 3)), *gKd, *gKv);
         replyStatus("OK ");
         return;
     }
 
-    if (strncmp(line, "KD=", 3) == 0 && gKp && gKd && gKv && gMaxLean) {
-        applyParams(*gKp, static_cast<float>(atof(line + 3)), *gKv, *gMaxLean);
+    if (strncmp(line, "KD=", 3) == 0 && gKp && gKd && gKv) {
+        applyParams(*gKp, static_cast<float>(atof(line + 3)), *gKv);
         replyStatus("OK ");
         return;
     }
 
-    if (strncmp(line, "KV=", 3) == 0 && gKp && gKd && gKv && gMaxLean) {
-        applyParams(*gKp, *gKd, static_cast<float>(atof(line + 3)), *gMaxLean);
+    if (strncmp(line, "KV=", 3) == 0 && gKp && gKd && gKv) {
+        applyParams(*gKp, *gKd, static_cast<float>(atof(line + 3)));
         replyStatus("OK ");
         return;
     }
 
-    if (strncmp(line, "ML=", 3) == 0 && gKp && gKd && gKv && gMaxLean) {
-        applyParams(*gKp, *gKd, *gKv, static_cast<float>(atof(line + 3)));
-        replyStatus("OK ");
+    if (strncmp(line, "SPD=", 4) == 0 && gTargetSpeed) {
+        *gTargetSpeed = static_cast<float>(atof(line + 4));
+        Serial.printf("[BLE] 目标速度 spd=%.3f\n", *gTargetSpeed);
+        return;
+    }
+
+    if (strncmp(line, "TRN=", 4) == 0 && gTurnPwm) {
+        *gTurnPwm = static_cast<float>(atof(line + 4));
+        Serial.printf("[BLE] 转向差速 trn=%.3f\n", *gTurnPwm);
+        return;
+    }
+
+    if (strncmp(line, "SLW=", 4) == 0 && gSpeedSlew) {
+        float v = static_cast<float>(atof(line + 4));
+        if (v < 1.0f) {
+            v = 1.0f;
+        }
+        *gSpeedSlew = v;
+        Serial.printf("[BLE] 急刹强度 slw=%.3f\n", *gSpeedSlew);
         return;
     }
 
@@ -162,6 +186,7 @@ class ServerCallbacks : public BLEServerCallbacks {
     void onDisconnect(BLEServer *server) override {
         (void)server;
         gConnected = false;
+        clearMotionCmd();
         Serial.println("[BLE] 已断开，重新广播");
         delay(100);
         BLEDevice::startAdvertising();
@@ -180,11 +205,14 @@ class CommandCallbacks : public BLECharacteristicCallbacks {
 
 } // namespace
 
-void bleConfigBegin(float *kp, float *kd, float *kv, float *maxLean) {
+void bleConfigBegin(float *kp, float *kd, float *kv, float *targetSpeed, float *turnPwm, float *speedSlew) {
     gKp = kp;
     gKd = kd;
     gKv = kv;
-    gMaxLean = maxLean;
+    gTargetSpeed = targetSpeed;
+    gTurnPwm = turnPwm;
+    gSpeedSlew = speedSlew;
+    clearMotionCmd();
     loadParamsFromNvs();
 
     BLEDevice::init(BLE_DEVICE_NAME);
@@ -204,9 +232,8 @@ void bleConfigBegin(float *kp, float *kd, float *kv, float *maxLean) {
         BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
     gStatusChar->addDescriptor(new BLE2902());
 
-    char initBuf[96];
-    snprintf(initBuf, sizeof(initBuf), "KP=%.3f,KD=%.3f,KV=%.4f,ML=%.2f",
-             *gKp, *gKd, *gKv, *gMaxLean);
+    char initBuf[64];
+    snprintf(initBuf, sizeof(initBuf), "KP=%.3f,KD=%.3f,KV=%.4f", *gKp, *gKd, *gKv);
     gStatusChar->setValue(initBuf);
 
     service->start();
@@ -218,20 +245,20 @@ void bleConfigBegin(float *kp, float *kd, float *kv, float *maxLean) {
     advertising->setMinPreferred(0x12);
     BLEDevice::startAdvertising();
 
-    Serial.printf("[BLE] 广播中，设备名=%s kp=%.3f kd=%.3f kv=%.4f ml=%.2f\n",
-                  BLE_DEVICE_NAME, *gKp, *gKd, *gKv, *gMaxLean);
+    Serial.printf("[BLE] 广播中，设备名=%s kp=%.3f kd=%.3f kv=%.4f\n",
+                  BLE_DEVICE_NAME, *gKp, *gKd, *gKv);
 }
 
 bool bleConfigIsConnected() {
     return gConnected;
 }
 
-void bleConfigNotifyStatus(float angle, float targetAngle, float pwm) {
+void bleConfigNotifyStatus(float angle, float batteryPercent, float pwm) {
     if (!gConnected || !gStatusChar) {
         return;
     }
     char buf[64];
-    snprintf(buf, sizeof(buf), "ANG=%.2f,TA=%.2f,PWM=%.1f", angle, targetAngle, pwm);
+    snprintf(buf, sizeof(buf), "ANG=%.2f,BAT=%.1f,PWM=%.1f", angle, batteryPercent, pwm);
     gStatusChar->setValue(buf);
     gStatusChar->notify();
 }

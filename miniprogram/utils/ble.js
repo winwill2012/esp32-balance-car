@@ -5,9 +5,12 @@
  * Command (Write): 0000FFF1-...
  * Status  (Notify/Read): 0000FFF2-...
  *
- * 指令: KP= / KD= / KV= / ML= / SET=kp,kd[,kv,ml] / GET / SAVE
- * 遥测: ANG=xx,TA=xx,PWM=xx
- * 应答: OK KP=xx,KD=xx,KV=xx,ML=xx
+ * 指令: KP= / KD= / KV= / SET=kp,kd[,kv] / SPD=xx / TRN=xx / SLW=xx / GET / SAVE
+ * 遥测: ANG=xx,BAT=xx,PWM=xx
+ * 应答: OK KP=xx,KD=xx,KV=xx
+ * SPD: 目标速度 targetSpeed，前进为正、后退为负
+ * TRN: 转向差速 turnPwm，右转为正、左转为负
+ * SLW: 急刹强度（目标速度斜坡），值越大越剧烈
  */
 
 const DEVICE_NAME = 'ESP32-Car'

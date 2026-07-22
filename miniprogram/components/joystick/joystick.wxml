@@ -1,0 +1,22 @@
+<view class="joy {{disabled ? 'is-disabled' : ''}} {{active ? 'is-active' : ''}}">
+  <view
+    class="joy-pad"
+    catchtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    catchtouchend="onTouchEnd"
+    catchtouchcancel="onTouchEnd"
+  >
+    <view class="joy-ring"></view>
+    <view class="joy-cross-v" wx:if="{{axis === 'y' || axis === 'both'}}"></view>
+    <view class="joy-cross-h" wx:if="{{axis === 'x' || axis === 'both'}}"></view>
+    <view class="joy-center-dot"></view>
+    <view
+      class="joy-knob {{active ? 'is-dragging' : ''}}"
+      style="transform: translate({{dx}}px, {{dy}}px);"
+    ></view>
+  </view>
+  <view class="joy-meta">
+    <text class="joy-title">{{label}}</text>
+    <text class="joy-hint">{{hint}}</text>
+  </view>
+</view>

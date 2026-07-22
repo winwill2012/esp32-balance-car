@@ -1,0 +1,117 @@
+.joy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.joy.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.joy-pad {
+  position: relative;
+  width: 280rpx;
+  height: 280rpx;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 42%),
+    linear-gradient(160deg, #e8f2ec 0%, #d5e4db 55%, #c5d6cc 100%);
+  border: 4rpx solid rgba(15, 40, 35, 0.14);
+  box-shadow:
+    0 14rpx 28rpx rgba(20, 40, 50, 0.18),
+    inset 0 2rpx 0 rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+}
+
+.joy.is-active .joy-pad {
+  border-color: rgba(5, 150, 105, 0.45);
+}
+
+.joy-ring {
+  position: absolute;
+  left: 18%;
+  top: 18%;
+  right: 18%;
+  bottom: 18%;
+  border-radius: 50%;
+  border: 2rpx dashed rgba(15, 40, 35, 0.16);
+}
+
+.joy-cross-v,
+.joy-cross-h {
+  position: absolute;
+  background: rgba(15, 40, 35, 0.1);
+  border-radius: 999rpx;
+}
+
+.joy-cross-v {
+  left: 50%;
+  top: 12%;
+  bottom: 12%;
+  width: 4rpx;
+  margin-left: -2rpx;
+}
+
+.joy-cross-h {
+  top: 50%;
+  left: 12%;
+  right: 12%;
+  height: 4rpx;
+  margin-top: -2rpx;
+}
+
+.joy-center-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12rpx;
+  height: 12rpx;
+  margin: -6rpx 0 0 -6rpx;
+  border-radius: 50%;
+  background: rgba(15, 40, 35, 0.22);
+}
+
+.joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 88rpx;
+  height: 88rpx;
+  margin-left: -44rpx;
+  margin-top: -44rpx;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, #ffffff 0%, #ecfdf5 38%, #a7f3d0 78%, #34d399 100%);
+  border: 3rpx solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 10rpx 18rpx rgba(4, 120, 87, 0.28),
+    inset 0 2rpx 0 rgba(255, 255, 255, 0.8);
+  transition: box-shadow 0.12s ease;
+  will-change: transform;
+}
+
+.joy-knob.is-dragging {
+  box-shadow:
+    0 14rpx 24rpx rgba(4, 120, 87, 0.36),
+    inset 0 2rpx 0 rgba(255, 255, 255, 0.85);
+}
+
+.joy-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.joy-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #123028;
+}
+
+.joy-hint {
+  font-size: 20rpx;
+  color: #4b635a;
+}

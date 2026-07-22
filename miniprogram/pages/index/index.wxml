@@ -1,200 +1,158 @@
 <view class="page">
-  <view class="hero">
-    <text class="brand">ESP32-Car</text>
-    <text class="sub">串级 PD · 实时调参</text>
+  <view class="page-grid">
+    <view class="page-grid__sharp"></view>
+    <view class="page-grid__soft"></view>
   </view>
 
-  <view class="card status-card">
-    <view class="row between">
-      <text class="label">连接状态</text>
-      <view class="badge {{connected ? 'on' : 'off'}}">
-        <view class="dot"></view>
-        <text>{{statusText}}</text>
+  <view class="page-body">
+    <ble-status />
+
+    <view class="card meter-card">
+      <view class="meter-item">
+        <text class="meter-label">倾角 °</text>
+        <text class="meter-value">{{angleText}}</text>
+      </view>
+      <view class="meter-divider"></view>
+      <view class="meter-item">
+        <text class="meter-label">电池电量 %</text>
+        <text class="meter-value accent">{{batteryText}}</text>
+      </view>
+      <view class="meter-divider"></view>
+      <view class="meter-item">
+        <text class="meter-label">PWM</text>
+        <text class="meter-value">{{pwmText}}</text>
       </view>
     </view>
-    <view wx:if="{{deviceName}}" class="device-line">{{deviceName}}</view>
-  </view>
 
-  <view class="actions">
-    <button
-      class="btn primary"
-      loading="{{scanning || connecting}}"
-      disabled="{{connected || scanning || connecting}}"
-      bindtap="onScanConnect"
-    >{{scanning ? '扫描中…' : (connecting ? '连接中…' : '扫描并连接')}}</button>
-    <button
-      class="btn ghost"
-      disabled="{{!connected && !deviceId}}"
-      bindtap="onDisconnect"
-    >断开</button>
-  </view>
+    <view class="tune-area {{connected ? 'is-live' : 'is-locked'}}">
+      <view class="card loop-card loop-inner">
+        <view class="loop-head">
+          <view class="loop-badge">内环</view>
+          <view class="loop-meta">
+            <text class="loop-title">倾角 PD</text>
+            <text class="loop-flow">目标倾角 → PWM</text>
+          </view>
+        </view>
 
-  <view class="card meter-card">
-    <view class="meter-item">
-      <text class="meter-label">倾角 °</text>
-      <text class="meter-value">{{angleText}}</text>
-    </view>
-    <view class="meter-divider"></view>
-    <view class="meter-item">
-      <text class="meter-label">目标角 °</text>
-      <text class="meter-value accent">{{targetAngleText}}</text>
-    </view>
-    <view class="meter-divider"></view>
-    <view class="meter-item">
-      <text class="meter-label">PWM</text>
-      <text class="meter-value">{{pwmText}}</text>
-    </view>
-  </view>
+        <view class="param-block accent-kp">
+          <view class="param-top">
+            <text class="param-title">Kp</text>
+            <text class="param-desc">比例增益 · 0–200</text>
+            <input
+              class="param-tag"
+              type="digit"
+              value="{{kp}}"
+              bindinput="onKpInput"
+              disabled="{{!connected}}"
+            />
+          </view>
+          <slider
+            class="param-slider"
+            min="0"
+            max="200"
+            step="0.5"
+            value="{{kp}}"
+            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
+            backgroundColor="#d5dde6"
+            block-size="22"
+            disabled="{{!connected}}"
+            bindchanging="onKpChanging"
+            bindchange="onKpChange"
+          />
+          <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-5" bindtap="onNudge">−5</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-1" bindtap="onNudge">−1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="1" bindtap="onNudge">+1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="5" bindtap="onNudge">+5</button>
+          </view>
+        </view>
 
-  <view class="section-label">内环 · 倾角 PD</view>
+        <view class="param-split"></view>
 
-  <view class="card param-card">
-    <view class="param-head">
-      <text class="param-title">Kp</text>
-      <input
-        class="param-input"
-        type="digit"
-        value="{{kp}}"
-        bindinput="onKpInput"
-        disabled="{{!connected}}"
-      />
-    </view>
-    <slider
-      min="0"
-      max="200"
-      step="0.5"
-      value="{{kp}}"
-      activeColor="#3dd68c"
-      backgroundColor="#2a2a2a"
-      block-size="22"
-      disabled="{{!connected}}"
-      bindchanging="onKpChanging"
-      bindchange="onKpChange"
-    />
-    <view class="quick-row">
-      <button class="qbtn" disabled="{{!connected}}" data-param="kp" data-delta="-5" bindtap="onNudge">-5</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kp" data-delta="-1" bindtap="onNudge">-1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kp" data-delta="1" bindtap="onNudge">+1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kp" data-delta="5" bindtap="onNudge">+5</button>
-    </view>
-    <view class="hint">比例增益 · 范围 0–200</view>
-  </view>
+        <view class="param-block accent-kd">
+          <view class="param-top">
+            <text class="param-title">Kd</text>
+            <text class="param-desc">微分增益 · 0–20</text>
+            <input
+              class="param-tag"
+              type="digit"
+              value="{{kd}}"
+              bindinput="onKdInput"
+              disabled="{{!connected}}"
+            />
+          </view>
+          <slider
+            class="param-slider"
+            min="0"
+            max="20"
+            step="0.1"
+            value="{{kd}}"
+            activeColor="{{connected ? '#2563eb' : '#9ca3af'}}"
+            backgroundColor="#d5dde6"
+            block-size="22"
+            disabled="{{!connected}}"
+            bindchanging="onKdChanging"
+            bindchange="onKdChange"
+          />
+          <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.5" bindtap="onNudge">−0.5</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.1" bindtap="onNudge">−0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.1" bindtap="onNudge">+0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.5" bindtap="onNudge">+0.5</button>
+          </view>
+        </view>
+      </view>
 
-  <view class="card param-card">
-    <view class="param-head">
-      <text class="param-title">Kd</text>
-      <input
-        class="param-input"
-        type="digit"
-        value="{{kd}}"
-        bindinput="onKdInput"
-        disabled="{{!connected}}"
-      />
-    </view>
-    <slider
-      min="0"
-      max="20"
-      step="0.1"
-      value="{{kd}}"
-      activeColor="#5b9cff"
-      backgroundColor="#2a2a2a"
-      block-size="22"
-      disabled="{{!connected}}"
-      bindchanging="onKdChanging"
-      bindchange="onKdChange"
-    />
-    <view class="quick-row">
-      <button class="qbtn" disabled="{{!connected}}" data-param="kd" data-delta="-0.5" bindtap="onNudge">-0.5</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kd" data-delta="-0.1" bindtap="onNudge">-0.1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kd" data-delta="0.1" bindtap="onNudge">+0.1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kd" data-delta="0.5" bindtap="onNudge">+0.5</button>
-    </view>
-    <view class="hint">微分增益 · 范围 0–20</view>
-  </view>
+      <view class="cascade-hint">
+        <text class="cascade-arrow">↑ 外环输出作为内环目标</text>
+      </view>
 
-  <view class="section-label">外环 · 速度环</view>
+      <view class="card loop-card loop-outer">
+        <view class="loop-head">
+          <view class="loop-badge">外环</view>
+          <view class="loop-meta">
+            <text class="loop-title">速度环</text>
+            <text class="loop-flow">速度误差 → 目标倾角</text>
+          </view>
+        </view>
 
-  <view class="card param-card">
-    <view class="param-head">
-      <text class="param-title">Kv</text>
-      <input
-        class="param-input"
-        type="digit"
-        value="{{kv}}"
-        bindinput="onKvInput"
-        disabled="{{!connected}}"
-      />
-    </view>
-    <slider
-      min="0"
-      max="2"
-      step="0.01"
-      value="{{kv}}"
-      activeColor="#ffb454"
-      backgroundColor="#2a2a2a"
-      block-size="22"
-      disabled="{{!connected}}"
-      bindchanging="onKvChanging"
-      bindchange="onKvChange"
-    />
-    <view class="quick-row">
-      <button class="qbtn" disabled="{{!connected}}" data-param="kv" data-delta="-0.1" bindtap="onNudge">-0.1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kv" data-delta="-0.01" bindtap="onNudge">-0.01</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kv" data-delta="0.01" bindtap="onNudge">+0.01</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="kv" data-delta="0.1" bindtap="onNudge">+0.1</button>
-    </view>
-    <view class="hint">速度→目标倾角 · 先从小值试 · 范围 0–2</view>
-  </view>
+        <view class="param-block accent-kv">
+          <view class="param-top">
+            <text class="param-title">Kv</text>
+            <text class="param-desc">速度增益 · 0–2</text>
+            <input
+              class="param-tag"
+              type="digit"
+              value="{{kv}}"
+              bindinput="onKvInput"
+              disabled="{{!connected}}"
+            />
+          </view>
+          <slider
+            class="param-slider"
+            min="0"
+            max="2"
+            step="0.01"
+            value="{{kv}}"
+            activeColor="{{connected ? '#ea580c' : '#9ca3af'}}"
+            backgroundColor="#d5dde6"
+            block-size="22"
+            disabled="{{!connected}}"
+            bindchanging="onKvChanging"
+            bindchange="onKvChange"
+          />
+          <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="-0.1" bindtap="onNudge">−0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="-0.01" bindtap="onNudge">−0.01</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="0.01" bindtap="onNudge">+0.01</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="0.1" bindtap="onNudge">+0.1</button>
+          </view>
+        </view>
+      </view>
 
-  <view class="card param-card">
-    <view class="param-head">
-      <text class="param-title">MaxLean</text>
-      <input
-        class="param-input"
-        type="digit"
-        value="{{maxLean}}"
-        bindinput="onMaxLeanInput"
-        disabled="{{!connected}}"
-      />
+      <view class="actions bottom">
+        <button class="btn save" hover-class="none" disabled="{{!connected}}" bindtap="onSave">持久化到芯片</button>
+      </view>
     </view>
-    <slider
-      min="0"
-      max="60"
-      step="0.5"
-      value="{{maxLean}}"
-      activeColor="#e87cff"
-      backgroundColor="#2a2a2a"
-      block-size="22"
-      disabled="{{!connected}}"
-      bindchanging="onMaxLeanChanging"
-      bindchange="onMaxLeanChange"
-    />
-    <view class="quick-row">
-      <button class="qbtn" disabled="{{!connected}}" data-param="maxLean" data-delta="-1" bindtap="onNudge">-1</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="maxLean" data-delta="-0.5" bindtap="onNudge">-0.5</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="maxLean" data-delta="0.5" bindtap="onNudge">+0.5</button>
-      <button class="qbtn" disabled="{{!connected}}" data-param="maxLean" data-delta="1" bindtap="onNudge">+1</button>
-    </view>
-    <view class="hint">目标倾角限幅 ° · 范围 0–60</view>
-  </view>
-
-  <view class="card preset-card">
-    <text class="preset-title">内环快捷预设</text>
-    <view class="quick-row wrap">
-      <button class="qbtn preset" disabled="{{!connected}}" data-kp="15" data-kd="0.3" bindtap="onPreset">软 15/0.3</button>
-      <button class="qbtn preset" disabled="{{!connected}}" data-kp="25" data-kd="0.5" bindtap="onPreset">默认 25/0.5</button>
-      <button class="qbtn preset" disabled="{{!connected}}" data-kp="40" data-kd="0.8" bindtap="onPreset">硬 40/0.8</button>
-      <button class="qbtn preset" disabled="{{!connected}}" data-kp="60" data-kd="1.2" bindtap="onPreset">更硬 60/1.2</button>
-    </view>
-  </view>
-
-  <view class="actions bottom">
-    <button class="btn primary" disabled="{{!connected}}" bindtap="onApply">下发参数</button>
-    <button class="btn ghost" disabled="{{!connected}}" bindtap="onSave">保存到板端</button>
-  </view>
-
-  <view class="tips">
-    <text>协议：SET=kp,kd,kv,ml · KV= / ML= · 遥测含 TA 目标角</text>
-    <text wx:if="{{lastMsg}}" class="last">{{lastMsg}}</text>
   </view>
 </view>

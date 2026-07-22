@@ -1,0 +1,25 @@
+<view class="card status-card">
+  <view class="row between status-row">
+    <view class="status-left">
+      <view class="badge {{connected ? 'on' : 'off'}}">
+        <view class="dot"></view>
+        <text>{{statusText}}</text>
+      </view>
+      <text wx:if="{{deviceName}}" class="device-line">{{deviceName}}</text>
+    </view>
+    <button
+      wx:if="{{!connected}}"
+      class="btn primary status-btn"
+      hover-class="none"
+      loading="{{scanning || connecting}}"
+      disabled="{{scanning || connecting}}"
+      bindtap="onScanConnect"
+    >{{scanning ? '扫描中…' : (connecting ? '连接中…' : '扫描并连接')}}</button>
+    <button
+      wx:else
+      class="btn ghost status-btn"
+      hover-class="none"
+      bindtap="onDisconnect"
+    >断开连接</button>
+  </view>
+</view>

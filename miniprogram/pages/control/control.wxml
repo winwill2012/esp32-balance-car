@@ -1,0 +1,138 @@
+<view class="page">
+  <view class="page-grid">
+    <view class="page-grid__sharp"></view>
+    <view class="page-grid__soft"></view>
+  </view>
+
+  <view class="page-body">
+    <ble-status />
+
+    <view class="card dash-card">
+      <view class="dash-item">
+        <text class="dash-label">目标速度</text>
+        <text class="dash-value">{{speedText}}</text>
+      </view>
+      <view class="dash-divider"></view>
+      <view class="dash-item">
+        <text class="dash-label">转向差速</text>
+        <text class="dash-value">{{turnText}}</text>
+      </view>
+      <view class="dash-divider"></view>
+      <view class="dash-item">
+        <text class="dash-label">状态</text>
+        <text class="dash-value {{connected ? 'ok' : 'off'}}">{{connected ? '可遥控' : '未连接'}}</text>
+      </view>
+    </view>
+
+    <view class="stick-row">
+      <view class="stick-col">
+        <joystick
+          axis="y"
+          label="前进 / 后退"
+          hint="上推前进 · 下拉后退"
+          disabled="{{!connected}}"
+          bind:change="onSpeedStick"
+        />
+      </view>
+      <view class="stick-col">
+        <joystick
+          axis="x"
+          label="左转 / 右转"
+          hint="左推左转 · 右推右转"
+          disabled="{{!connected}}"
+          bind:change="onTurnStick"
+        />
+      </view>
+    </view>
+
+    <view class="card setting-card">
+      <view class="setting-top">
+        <text class="setting-title">最大速度</text>
+        <text class="setting-desc">前后满行程 · 1–50</text>
+        <input
+          class="setting-tag"
+          type="digit"
+          value="{{speedMax}}"
+          bindinput="onSpeedMaxInput"
+        />
+      </view>
+      <slider
+        min="1"
+        max="50"
+        step="1"
+        value="{{speedMax}}"
+        activeColor="#059669"
+        backgroundColor="#d5dde6"
+        block-size="22"
+        bindchanging="onSpeedMaxChanging"
+        bindchange="onSpeedMaxChange"
+      />
+      <view class="setting-quick">
+        <button class="sbtn" hover-class="none" data-delta="-5" bindtap="onSpeedMaxNudge">−5</button>
+        <button class="sbtn" hover-class="none" data-delta="-1" bindtap="onSpeedMaxNudge">−1</button>
+        <button class="sbtn" hover-class="none" data-delta="1" bindtap="onSpeedMaxNudge">+1</button>
+        <button class="sbtn" hover-class="none" data-delta="5" bindtap="onSpeedMaxNudge">+5</button>
+      </view>
+    </view>
+
+    <view class="card setting-card setting-card--turn">
+      <view class="setting-top">
+        <text class="setting-title">最大转向</text>
+        <text class="setting-desc">左右满行程 · 1–80</text>
+        <input
+          class="setting-tag"
+          type="digit"
+          value="{{turnMax}}"
+          bindinput="onTurnMaxInput"
+        />
+      </view>
+      <slider
+        min="1"
+        max="80"
+        step="1"
+        value="{{turnMax}}"
+        activeColor="#ea580c"
+        backgroundColor="#d5dde6"
+        block-size="22"
+        bindchanging="onTurnMaxChanging"
+        bindchange="onTurnMaxChange"
+      />
+      <view class="setting-quick">
+        <button class="sbtn sbtn--turn" hover-class="none" data-delta="-5" bindtap="onTurnMaxNudge">−5</button>
+        <button class="sbtn sbtn--turn" hover-class="none" data-delta="-1" bindtap="onTurnMaxNudge">−1</button>
+        <button class="sbtn sbtn--turn" hover-class="none" data-delta="1" bindtap="onTurnMaxNudge">+1</button>
+        <button class="sbtn sbtn--turn" hover-class="none" data-delta="5" bindtap="onTurnMaxNudge">+5</button>
+      </view>
+    </view>
+
+    <view class="card setting-card setting-card--brake">
+      <view class="setting-top">
+        <text class="setting-title">急刹强度</text>
+        <text class="setting-desc">值越大越剧烈 · 1–100</text>
+        <input
+          class="setting-tag"
+          type="digit"
+          value="{{brakeStrength}}"
+          bindinput="onBrakeStrengthInput"
+        />
+      </view>
+      <slider
+        min="1"
+        max="100"
+        step="1"
+        value="{{brakeStrength}}"
+        activeColor="#2563eb"
+        backgroundColor="#d5dde6"
+        block-size="22"
+        bindchanging="onBrakeStrengthChanging"
+        bindchange="onBrakeStrengthChange"
+      />
+      <view class="setting-quick">
+        <button class="sbtn sbtn--brake" hover-class="none" data-delta="-5" bindtap="onBrakeStrengthNudge">−5</button>
+        <button class="sbtn sbtn--brake" hover-class="none" data-delta="-1" bindtap="onBrakeStrengthNudge">−1</button>
+        <button class="sbtn sbtn--brake" hover-class="none" data-delta="1" bindtap="onBrakeStrengthNudge">+1</button>
+        <button class="sbtn sbtn--brake" hover-class="none" data-delta="5" bindtap="onBrakeStrengthNudge">+5</button>
+      </view>
+    </view>
+  </view>
+</view>

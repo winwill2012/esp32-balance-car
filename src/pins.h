@@ -12,14 +12,15 @@
 
 #define  MOTOR_R_IN1 19
 #define  MOTOR_R_IN2 18
-#define  MOTOR_R_EN1 26
-#define  MOTOR_R_EN2 27
+#define  MOTOR_R_EN1 27
+#define  MOTOR_R_EN2 26
 
 #define CH_L_IN1 0
 #define CH_L_IN2 1
 #define CH_R_IN1 2
 #define CH_R_IN2 3
 #define LEDC_BITS_WIDTH 8
+#define MAX_PWM (pow(2, LEDC_BITS_WIDTH) - 1)
 #define LEDC_FREQ_HZ 1000
 
 #define BAT_DETECT 34

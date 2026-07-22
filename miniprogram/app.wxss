@@ -1,10 +1,90 @@
 page {
-  background: #0f0f0f;
-  color: #f2f2f2;
+  background: #6f8f9c;
+  color: #123028;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
   box-sizing: border-box;
 }
 
 view, text, button, input, slider {
   box-sizing: border-box;
+}
+
+/* 顶部网格 → 向下渐隐模糊 */
+.page-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 78%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.page-grid__sharp,
+.page-grid__soft {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  top: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(236, 253, 245, 0.3) 0,
+      rgba(236, 253, 245, 0.3) 1.5rpx,
+      transparent 1.5rpx,
+      transparent 46rpx
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(236, 253, 245, 0.3) 0,
+      rgba(236, 253, 245, 0.3) 1.5rpx,
+      transparent 1.5rpx,
+      transparent 46rpx
+    );
+}
+
+.page-grid__sharp {
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.55) 22%,
+    rgba(0, 0, 0, 0.28) 48%,
+    rgba(0, 0, 0, 0.08) 68%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.55) 22%,
+    rgba(0, 0, 0, 0.28) 48%,
+    rgba(0, 0, 0, 0.08) 68%,
+    transparent 100%
+  );
+}
+
+.page-grid__soft {
+  filter: blur(4px);
+  transform: scale(1.04);
+  transform-origin: top center;
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.25) 0%,
+    rgba(0, 0, 0, 0.45) 28%,
+    rgba(0, 0, 0, 0.22) 52%,
+    transparent 82%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.25) 0%,
+    rgba(0, 0, 0, 0.45) 28%,
+    rgba(0, 0, 0, 0.22) 52%,
+    transparent 82%
+  );
+}
+
+.page-body {
+  position: relative;
+  z-index: 1;
 }

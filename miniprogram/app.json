@@ -1,13 +1,34 @@
 {
   "pages": [
+    "pages/control/control",
     "pages/index/index"
   ],
   "window": {
     "navigationBarTitleText": "平衡车调参",
-    "navigationBarBackgroundColor": "#1a1a1a",
+    "navigationBarBackgroundColor": "#6f8f9c",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#0f0f0f",
+    "backgroundColor": "#6f8f9c",
     "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#6b7c74",
+    "selectedColor": "#047857",
+    "backgroundColor": "#eef8f2",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/control/control",
+        "text": "控制",
+        "iconPath": "assets/tab/control.png",
+        "selectedIconPath": "assets/tab/control-active.png"
+      },
+      {
+        "pagePath": "pages/index/index",
+        "text": "PID调参",
+        "iconPath": "assets/tab/pid.png",
+        "selectedIconPath": "assets/tab/pid-active.png"
+      }
+    ]
   },
   "permission": {
     "scope.bluetooth": {

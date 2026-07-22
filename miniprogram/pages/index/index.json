@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
-  "navigationBarTitleText": "平衡车调参"
+  "usingComponents": {
+    "ble-status": "/components/ble-status/ble-status"
+  },
+  "navigationBarTitleText": "PID调参"
 }

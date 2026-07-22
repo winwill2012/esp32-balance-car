@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平衡车调参 · 浅色科技风 UI 预览</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #e2e8f0;
+    color: #1e293b;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+  }
+  .title-bar {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+  .title-bar h1 {
+    font-size: 32px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #059669 0%, #0284c7 50%, #d97706 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .title-bar p {
+    color: #64748b;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .phones {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .phone {
+    width: 375px;
+    border-radius: 36px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow:
+      0 20px 40px rgba(15, 23, 42, 0.12),
+      0 0 0 1px #e2e8f0;
+  }
+  .nav-bar {
+    height: 44px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .page-content {
+    min-height: 620px;
+    padding: 12px 16px 30px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(5, 150, 105, 0.05), transparent 40%),
+      radial-gradient(circle at 100% 0%, rgba(2, 132, 199, 0.04), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(217, 119, 6, 0.04), transparent 40%),
+      #eef2f7;
+  }
+
+  /* 通用卡片 */
+  .card {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+  }
+
+  /* 状态卡 */
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .status-left { flex: 1; min-width: 0; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge.on {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+  .badge.off {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .badge.on .dot {
+    background: #10b981;
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+  }
+  .badge.off .dot { background: #94a3b8; }
+  .device-line {
+    display: block;
+    margin-top: 5px;
+    font-size: 10px;
+    color: #64748b;
+    font-family: "SF Mono", monospace;
+  }
+  .btn {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0 14px;
+    height: 32px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+  }
+  .btn.ghost {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    font-weight: 500;
+  }
+
+  /* 仪表盘 */
+  .meter-card {
+    display: flex;
+    align-items: stretch;
+    padding: 14px 4px;
+    background:
+      linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 50%, #fffbeb 100%),
+      #ffffff;
+  }
+  .meter-item {
+    flex: 1;
+    text-align: center;
+    padding: 0 4px;
+    position: relative;
+  }
+  .meter-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .meter-item:nth-child(1)::before { background: #059669; }
+  .meter-item:nth-child(3)::before { background: #0284c7; }
+  .meter-item:nth-child(5)::before { background: #d97706; }
+  .meter-divider {
+    width: 1px;
+    background: #e2e8f0;
+    margin: 4px 0;
+  }
+  .meter-label {
+    display: block;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .meter-value {
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    font-family: "SF Mono", monospace;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+  .meter-value.accent {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* 分组标签 */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 6px;
+    font-size: 10px;
+    color: #64748b;
+    letter-spacing: 1px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .section-label::before {
+    content: '';
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, #059669 0%, #0284c7 100%);
+  }
+
+  /* 参数卡片 */
+  .param-card {
+    padding: 14px 14px 12px;
+    border-left-width: 3px;
+    border-left-style: solid;
+    position: relative;
+    overflow: hidden;
+  }
+  .param-card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+  .accent-kp { border-left-color: #059669;
+    background: linear-gradient(90deg, rgba(5, 150, 105, 0.04) 0%, transparent 40%), #ffffff;
+  }
+  .accent-kp::before { background: radial-gradient(ellipse at top right, rgba(5, 150, 105, 0.06), transparent 70%); }
+  .accent-kd { border-left-color: #0284c7;
+    background: linear-gradient(90deg, rgba(2, 132, 199, 0.04) 0%, transparent 40%), #ffffff;
+  }
+  .accent-kd::before { background: radial-gradient(ellipse at top right, rgba(2, 132, 199, 0.06), transparent 70%); }
+  .accent-kv { border-left-color: #d97706;
+    background: linear-gradient(90deg, rgba(217, 119, 6, 0.04) 0%, transparent 40%), #ffffff;
+  }
+  .accent-kv::before { background: radial-gradient(ellipse at top right, rgba(217, 119, 6, 0.06), transparent 70%); }
+
+  .param-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .param-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.5px;
+    font-family: "SF Mono", monospace;
+  }
+  .accent-kp .param-title {
+    background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .accent-kd .param-title {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .accent-kv .param-title {
+    background: linear-gradient(135deg, #d97706 0%, #fbbf24 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .param-input {
+    width: 100px;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-family: "SF Mono", monospace;
+  }
+
+  /* 滑块 */
+  .slider-wrap {
+    position: relative;
+    height: 20px;
+    display: flex;
+    align-items: center;
+  }
+  .slider-track {
+    flex: 1;
+    height: 5px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    position: relative;
+    overflow: visible;
+  }
+  .slider-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: 3px;
+  }
+  .accent-kp .slider-fill { background: linear-gradient(90deg, #059669 0%, #34d399 100%); }
+  .accent-kd .slider-fill { background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%); }
+  .accent-kv .slider-fill { background: linear-gradient(90deg, #d97706 0%, #fbbf24 100%); }
+  .slider-thumb {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), 0 0 0 2px #ffffff;
+  }
+  .accent-kp .slider-thumb { border: 2px solid #059669; }
+  .accent-kd .slider-thumb { border: 2px solid #0284c7; }
+  .accent-kv .slider-thumb { border: 2px solid #d97706; }
+
+  /* 快捷按钮 */
+  .quick-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .qbtn {
+    flex: 1;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "SF Mono", monospace;
+    cursor: pointer;
+  }
+  .accent-kp .qbtn {
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+  }
+  .accent-kd .qbtn {
+    color: #0369a1;
+    background: #eff6ff;
+    border: 1px solid #bae6fd;
+  }
+  .accent-kv .qbtn {
+    color: #b45309;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+  }
+
+  .hint {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+  }
+
+  /* 操作按钮 */
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .actions .btn {
+    flex: 1;
+    height: 38px;
+    font-size: 13px;
+  }
+
+  /* 提示区 */
+  .tips {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #64748b;
+    line-height: 1.6;
+    font-family: "SF Mono", monospace;
+  }
+  .tips .last {
+    display: block;
+    margin-top: 3px;
+    padding-top: 3px;
+    border-top: 1px dashed #e2e8f0;
+    color: #334155;
+    font-weight: 500;
+  }
+
+  /* Tab Bar */
+  .tab-bar {
+    display: flex;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 6px 0 10px;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: #94a3b8;
+    font-size: 11px;
+  }
+  .tab.active { color: #059669; }
+  .tab-icon {
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  .tab.control .tab-icon {
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-8 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm16 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-8 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z' fill='black'/></svg>") no-repeat center;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-8 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm16 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-8 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z' fill='black'/></svg>") no-repeat center;
+  }
+  .tab.pid .tab-icon {
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7h11a3 3 0 1 1 0 2H4V7Zm0 8h11a3 3 0 1 1 0 2H4v-2Z' fill='black'/></svg>") no-repeat center;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7h11a3 3 0 1 1 0 2H4V7Zm0 8h11a3 3 0 1 1 0 2H4v-2Z' fill='black'/></svg>") no-repeat center;
+  }
+
+  .label {
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 16px;
+    letter-spacing: 1px;
+  }
+
+  /* 控制页空状态 */
+  .empty-state {
+    margin-top: 16px;
+    padding: 24px 16px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+  .empty-state::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #059669 50%, transparent 100%);
+  }
+  .remote-wrap {
+    position: relative;
+    width: 110px;
+    height: 140px;
+    margin-bottom: 16px;
+  }
+  .remote-glow {
+    position: absolute;
+    inset: -12px;
+    background: radial-gradient(ellipse at center, rgba(5, 150, 105, 0.12) 0%, transparent 60%);
+  }
+  .remote {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 10px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08), inset 0 1px 0 #ffffff;
+  }
+  .remote-screen {
+    background: #0a0f1c;
+    border: 1px solid #334155;
+    border-radius: 5px;
+    padding: 6px;
+    height: 22px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .screen-line {
+    height: 2px;
+    background: rgba(16, 185, 129, 0.5);
+    border-radius: 1px;
+    width: 80%;
+  }
+  .screen-line.short { width: 40%; background: rgba(16, 185, 129, 0.7); }
+  .screen-dot {
+    position: absolute;
+    top: 50%; right: 6px;
+    transform: translateY(-50%);
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 3px rgba(16, 185, 129, 0.8);
+  }
+  .remote-row {
+    display: flex;
+    gap: 5px;
+  }
+  .remote-btn {
+    flex: 1;
+    height: 18px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .remote-btn.small { height: 13px; border-radius: 4px; }
+  .remote-btn.primary {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    border-color: #047857;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.3);
+  }
+  .joystick {
+    margin-top: auto;
+    align-self: center;
+    width: 34px; height: 34px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .joystick-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .joystick-stick {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+    border: 1px solid #94a3b8;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  .empty-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+  .empty-desc {
+    font-size: 12px;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .empty-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #b45309;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .empty-badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #d97706;
+  }
+</style>
+</head>
+<body>
+  <div class="title-bar">
+    <h1>平衡车调参 · 浅色科技风 UI 预览</h1>
+    <p>LIGHT TECH · COMPACT · DIGITAL AESTHETIC</p>
+  </div>
+
+  <div class="phones">
+    <!-- 控制页 -->
+    <div>
+      <div class="phone">
+        <div class="nav-bar">控制</div>
+        <div class="page-content">
+          <!-- 状态卡 -->
+          <div class="card">
+            <div class="status-row">
+              <div class="status-left">
+                <div class="badge off">
+                  <div class="dot"></div>
+                  <span>未连接</span>
+                </div>
+                <span class="device-line">未配对设备</span>
+              </div>
+              <button class="btn primary">扫描并连接</button>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div class="empty-state">
+            <div class="remote-wrap">
+              <div class="remote-glow"></div>
+              <div class="remote">
+                <div class="remote-screen">
+                  <div class="screen-line short"></div>
+                  <div class="screen-line"></div>
+                  <div class="screen-dot"></div>
+                </div>
+                <div class="remote-row">
+                  <div class="remote-btn small"></div>
+                  <div class="remote-btn small"></div>
+                  <div class="remote-btn small"></div>
+                  <div class="remote-btn small"></div>
+                </div>
+                <div class="remote-row">
+                  <div class="remote-btn"></div>
+                  <div class="remote-btn primary"></div>
+                </div>
+                <div class="remote-row">
+                  <div class="remote-btn"></div>
+                  <div class="remote-btn"></div>
+                </div>
+                <div class="joystick">
+                  <div class="joystick-ring"></div>
+                  <div class="joystick-stick"></div>
+                </div>
+              </div>
+            </div>
+            <div class="empty-title">控制台</div>
+            <div class="empty-desc">遥控驾驶 · 姿态显示 · 实时波形</div>
+            <div class="empty-badge">
+              <div class="empty-badge-dot"></div>
+              <span>功能开发中</span>
+            </div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab control active"><div class="tab-icon"></div><span>控制</span></div>
+          <div class="tab pid"><div class="tab-icon"></div><span>PID调参</span></div>
+        </div>
+      </div>
+      <div class="label">控制页</div>
+    </div>
+
+    <!-- PID 调参页 -->
+    <div>
+      <div class="phone">
+        <div class="nav-bar">PID 调参</div>
+        <div class="page-content">
+          <!-- 状态卡 -->
+          <div class="card">
+            <div class="status-row">
+              <div class="status-left">
+                <div class="badge on">
+                  <div class="dot"></div>
+                  <span>已连接</span>
+                </div>
+                <span class="device-line">ESP32-Car-Balancer</span>
+              </div>
+              <button class="btn ghost">断开连接</button>
+            </div>
+          </div>
+
+          <!-- 仪表盘 -->
+          <div class="card meter-card">
+            <div class="meter-item">
+              <span class="meter-label">倾角 °</span>
+              <span class="meter-value">-2.35</span>
+            </div>
+            <div class="meter-divider"></div>
+            <div class="meter-item">
+              <span class="meter-label">电池电量 %</span>
+              <span class="meter-value accent">0.50</span>
+            </div>
+            <div class="meter-divider"></div>
+            <div class="meter-item">
+              <span class="meter-label">PWM</span>
+              <span class="meter-value">42.8</span>
+            </div>
+          </div>
+
+          <div class="section-label">内环 · 倾角 PD</div>
+
+          <!-- Kp -->
+          <div class="card param-card accent-kp">
+            <div class="param-head">
+              <span class="param-title">Kp</span>
+              <input class="param-input" value="25" readonly>
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-track">
+                <div class="slider-fill" style="width: 12.5%"></div>
+                <div class="slider-thumb" style="left: 12.5%"></div>
+              </div>
+            </div>
+            <div class="quick-row">
+              <button class="qbtn">-5</button>
+              <button class="qbtn">-1</button>
+              <button class="qbtn">+1</button>
+              <button class="qbtn">+5</button>
+            </div>
+            <div class="hint">比例增益 · 范围 0–200</div>
+          </div>
+
+          <!-- Kd -->
+          <div class="card param-card accent-kd">
+            <div class="param-head">
+              <span class="param-title">Kd</span>
+              <input class="param-input" value="0.5" readonly>
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-track">
+                <div class="slider-fill" style="width: 2.5%"></div>
+                <div class="slider-thumb" style="left: 2.5%"></div>
+              </div>
+            </div>
+            <div class="quick-row">
+              <button class="qbtn">-0.5</button>
+              <button class="qbtn">-0.1</button>
+              <button class="qbtn">+0.1</button>
+              <button class="qbtn">+0.5</button>
+            </div>
+            <div class="hint">微分增益 · 范围 0–20</div>
+          </div>
+
+          <div class="section-label">外环 · 速度环</div>
+
+          <!-- Kv -->
+          <div class="card param-card accent-kv">
+            <div class="param-head">
+              <span class="param-title">Kv</span>
+              <input class="param-input" value="0.02" readonly>
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-track">
+                <div class="slider-fill" style="width: 1%"></div>
+                <div class="slider-thumb" style="left: 1%"></div>
+              </div>
+            </div>
+            <div class="quick-row">
+              <button class="qbtn">-0.1</button>
+              <button class="qbtn">-0.01</button>
+              <button class="qbtn">+0.01</button>
+              <button class="qbtn">+0.1</button>
+            </div>
+            <div class="hint">速度→目标倾角 · 先从小值试 · 范围 0–2</div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="actions">
+            <button class="btn ghost">持久化到芯片</button>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab control"><div class="tab-icon"></div><span>控制</span></div>
+          <div class="tab pid active"><div class="tab-icon"></div><span>PID调参</span></div>
+        </div>
+      </div>
+      <div class="label">PID 调参页</div>
+    </div>
+  </div>
+</body>
+</html>

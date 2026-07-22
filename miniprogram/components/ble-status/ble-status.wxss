@@ -1,0 +1,109 @@
+.card {
+  background: #eef8f2;
+  border: 2rpx solid rgba(4, 120, 87, 0.2);
+  border-radius: 18rpx;
+  padding: 18rpx 22rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 8rpx 20rpx rgba(20, 40, 50, 0.14);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.badge.on {
+  background: #059669;
+  color: #ecfdf5;
+}
+
+.badge.off {
+  background: #d7e3dc;
+  color: #4b635a;
+}
+
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-row {
+  align-items: center;
+  gap: 16rpx;
+}
+
+.status-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-line {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #4b635a;
+  word-break: break-all;
+}
+
+.btn {
+  margin: 0;
+  padding: 0;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  line-height: 2.2;
+  border: none;
+}
+
+.btn::after {
+  border: none;
+}
+
+.btn.primary {
+  background: #047857;
+  color: #ecfdf5;
+  font-weight: 700;
+}
+
+.btn.ghost {
+  background: #dce8df;
+  color: #1f3a32;
+  border: 2rpx solid rgba(15, 50, 40, 0.18);
+  font-weight: 600;
+}
+
+.btn.primary[disabled] {
+  background: #8aa39a !important;
+  color: #d7e5df !important;
+  opacity: 1 !important;
+}
+
+.btn.primary[loading] {
+  background: #047857 !important;
+  color: #ecfdf5 !important;
+  opacity: 1 !important;
+}
+
+.status-btn {
+  flex: none !important;
+  width: auto;
+  min-width: 200rpx;
+  padding: 0 24rpx;
+  line-height: 64rpx;
+  font-size: 24rpx;
+}

@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "ble-status": "/components/ble-status/ble-status",
+    "joystick": "/components/joystick/joystick"
+  },
+  "navigationBarTitleText": "控制"
+}
