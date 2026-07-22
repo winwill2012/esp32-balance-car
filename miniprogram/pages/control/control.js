@@ -17,6 +17,7 @@ Page({
     connected: false,
     speedText: '0.00',
     turnText: '0.00',
+    batteryText: '--',
     speedMax: SPEED_MAX_DEFAULT,
     turnMax: TURN_MAX_DEFAULT,
     brakeStrength: BRAKE_STRENGTH_DEFAULT
@@ -48,7 +49,10 @@ Page({
     if (this._unsub) return
     this._unsub = session.subscribe((s) => {
       const wasConnected = this.data.connected
-      this.setData({ connected: s.connected })
+      this.setData({
+        connected: s.connected,
+        batteryText: s.batteryText
+      })
       if (!wasConnected && s.connected) {
         this.syncBrakeStrength()
       }

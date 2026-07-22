@@ -19,6 +19,11 @@
       </view>
       <view class="dash-divider"></view>
       <view class="dash-item">
+        <text class="dash-label">电量 %</text>
+        <text class="dash-value accent">{{batteryText}}</text>
+      </view>
+      <view class="dash-divider"></view>
+      <view class="dash-item">
         <text class="dash-label">状态</text>
         <text class="dash-value {{connected ? 'ok' : 'off'}}">{{connected ? '可遥控' : '未连接'}}</text>
       </view>

@@ -6,8 +6,8 @@
 
 MPU6050 mpu6050(Wire);
 
-int leftMotorDeadZone = 42; // 左电机死区
-int rightMotorDeadZone = 36; // 右电机死区
+int leftMotorDeadZone = 41; // 左电机死区
+int rightMotorDeadZone = 41; // 右电机死区
 
 int leftPwm = 0, rightPwm = 0; // 左右电机实际需要输出的pwm
 // 允许小车倾斜的最大角度（固件固定，不再由小程序下发）
@@ -151,8 +151,8 @@ void driveMotor(const int pwm) {
 // 检测电机死区
 void detectDeadZone() {
     xTaskCreate([](void *) {
-        int leftDeadZone = -1;
-        int rightDeadZone = -1;
+        leftMotorDeadZone = -1;
+        rightMotorDeadZone = -1;
         Serial.println("开始电机死区检测");
         for (int pwm = 0; pwm <= MAX_PWM; pwm++) {
             int32_t leftCount;
@@ -166,24 +166,24 @@ void detectDeadZone() {
                           static_cast<long>(leftCount),
                           static_cast<long>(rightCount));
 
-            if (leftDeadZone < 0 &&
+            if (leftMotorDeadZone < 0 &&
                 abs(leftCount) >= 10) {
-                leftDeadZone = pwm;
+                leftMotorDeadZone = pwm;
                 Serial.printf("左电机启动 PWM=%d\n", pwm);
             }
 
-            if (rightDeadZone < 0 &&
+            if (rightMotorDeadZone < 0 &&
                 abs(rightCount) >= 10) {
-                rightDeadZone = pwm;
+                rightMotorDeadZone = pwm;
                 Serial.printf("右电机启动 PWM=%d\n", pwm);
             }
 
-            if (leftDeadZone >= 0 && rightDeadZone >= 0) {
+            if (leftMotorDeadZone >= 0 && rightMotorDeadZone >= 0) {
                 break;
             }
         }
         driveMotor(0);
-        Serial.printf("检测完成：左电机死区=%d，右电机死区=%d\n", leftDeadZone, rightDeadZone);
+        Serial.printf("检测完成：左电机死区=%d，右电机死区=%d，请将数值回写到代码中\n", leftMotorDeadZone, rightMotorDeadZone);
         vTaskDelete(nullptr);
     }, "detectDeadZone", 4096, nullptr, 1, nullptr);
 }
@@ -205,7 +205,7 @@ void startPIDProcess() {
                     bleConfigNotifyStatus(angle, readBatteryPercent(), 0);
                 }
                 vTaskDelay(pdMS_TO_TICKS(1));
-                return;
+                continue;
             }
             uint32_t now = millis();
             // 外环速度控制
@@ -257,7 +257,7 @@ void setup() {
     Wire.begin(MPU6050_SDA, MPU6050_SCL);
     mpu6050.begin();
     // mpu6050.calcGyroOffsets(true);
-    mpu6050.setGyroOffsets(-3.63, -0.75, -1.08);
+    mpu6050.setGyroOffsets(-0.47, 0.55, -1.42);
     // delay(3000);
     // detectDeadZone();
     bleConfigBegin(&kp, &kd, &kv, &targetSpeedCmd, &turnPwm, &speedSlew);

@@ -45,10 +45,14 @@
 
 .dash-value {
   display: block;
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #123028;
   font-variant-numeric: tabular-nums;
+}
+
+.dash-value.accent {
+  color: #047857;
 }
 
 .dash-value.ok {
@@ -57,7 +61,7 @@
 
 .dash-value.off {
   color: #94a3b8;
-  font-size: 28rpx;
+  font-size: 26rpx;
 }
 
 .setting-card {
