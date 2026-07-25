@@ -2,25 +2,21 @@ const session = require('../../utils/bleSession.js')
 
 const SPEED_MAX_KEY = 'control.speedMax'
 const SPEED_MAX_DEFAULT = 15
-const SPEED_MAX_LIMIT = { min: 1, max: 50 }
+const SPEED_MAX_LIMIT = { min: 1, max: 25 }
 
 const TURN_MAX_KEY = 'control.turnMax'
 const TURN_MAX_DEFAULT = 30
-const TURN_MAX_LIMIT = { min: 1, max: 80 }
-
-const BRAKE_STRENGTH_KEY = 'control.brakeStrength'
-const BRAKE_STRENGTH_DEFAULT = 25
-const BRAKE_STRENGTH_LIMIT = { min: 1, max: 100 }
+const TURN_MAX_LIMIT = { min: 1, max: 50 }
 
 Page({
   data: {
     connected: false,
-    speedText: '0.00',
-    turnText: '0.00',
+    leftSpeedText: '--',
+    angleText: '--',
     batteryText: '--',
+    rightSpeedText: '--',
     speedMax: SPEED_MAX_DEFAULT,
-    turnMax: TURN_MAX_DEFAULT,
-    brakeStrength: BRAKE_STRENGTH_DEFAULT
+    turnMax: TURN_MAX_DEFAULT
   },
 
   _unsub: null,
@@ -31,17 +27,11 @@ Page({
   _sendTimer: null,
   _lastSentSpeed: null,
   _lastSentTurn: null,
-  _lastSentBrake: null,
 
   onLoad() {
     this.setData({
       speedMax: this.loadNumber(SPEED_MAX_KEY, SPEED_MAX_DEFAULT, SPEED_MAX_LIMIT),
-      turnMax: this.loadNumber(TURN_MAX_KEY, TURN_MAX_DEFAULT, TURN_MAX_LIMIT),
-      brakeStrength: this.loadNumber(
-        BRAKE_STRENGTH_KEY,
-        BRAKE_STRENGTH_DEFAULT,
-        BRAKE_STRENGTH_LIMIT
-      )
+      turnMax: this.loadNumber(TURN_MAX_KEY, TURN_MAX_DEFAULT, TURN_MAX_LIMIT)
     })
   },
 
@@ -51,14 +41,13 @@ Page({
       const wasConnected = this.data.connected
       this.setData({
         connected: s.connected,
-        batteryText: s.batteryText
+        leftSpeedText: s.leftSpeedText,
+        angleText: s.angleText,
+        batteryText: s.batteryText,
+        rightSpeedText: s.rightSpeedText
       })
-      if (!wasConnected && s.connected) {
-        this.syncBrakeStrength()
-      }
       if (wasConnected && !s.connected) {
         this.resetMotion()
-        this._lastSentBrake = null
       }
     })
   },
@@ -119,28 +108,6 @@ Page({
     }
   },
 
-  applyBrakeStrength(raw) {
-    const next = this.round(
-      this.clamp(Number(raw), BRAKE_STRENGTH_LIMIT.min, BRAKE_STRENGTH_LIMIT.max),
-      1
-    )
-    this.setData({ brakeStrength: next })
-    this.saveNumber(BRAKE_STRENGTH_KEY, next)
-    this.syncBrakeStrength(true)
-  },
-
-  syncBrakeStrength(force) {
-    if (!this.data.connected) return
-    const v = Number(this.data.brakeStrength)
-    if (!force && this._lastSentBrake !== null && Math.abs(this._lastSentBrake - v) < 0.01) {
-      return
-    }
-    this._lastSentBrake = v
-    session.sendCmd(`SLW=${v.toFixed(1)}`).catch((err) => {
-      console.error('SLW send failed', err)
-    })
-  },
-
   onSpeedMaxChanging(e) {
     this.setData({ speedMax: Number(e.detail.value) })
   },
@@ -159,6 +126,21 @@ Page({
     const delta = parseFloat(e.currentTarget.dataset.delta)
     if (Number.isNaN(delta)) return
     this.applySpeedMax(Number(this.data.speedMax) + delta)
+  },
+
+  onSpeedMaxReset() {
+    this.applySpeedMax(SPEED_MAX_DEFAULT)
+  },
+
+  onSettingHelp(e) {
+    const tip = e.currentTarget.dataset.tip
+    if (!tip) return
+    wx.showModal({
+      title: '说明',
+      content: String(tip),
+      showCancel: false,
+      confirmText: '知道了'
+    })
   },
 
   onTurnMaxChanging(e) {
@@ -181,24 +163,8 @@ Page({
     this.applyTurnMax(Number(this.data.turnMax) + delta)
   },
 
-  onBrakeStrengthChanging(e) {
-    this.setData({ brakeStrength: Number(e.detail.value) })
-  },
-
-  onBrakeStrengthChange(e) {
-    this.applyBrakeStrength(e.detail.value)
-  },
-
-  onBrakeStrengthInput(e) {
-    const v = parseFloat(e.detail.value)
-    if (Number.isNaN(v)) return
-    this.applyBrakeStrength(v)
-  },
-
-  onBrakeStrengthNudge(e) {
-    const delta = parseFloat(e.currentTarget.dataset.delta)
-    if (Number.isNaN(delta)) return
-    this.applyBrakeStrength(Number(this.data.brakeStrength) + delta)
+  onTurnMaxReset() {
+    this.applyTurnMax(TURN_MAX_DEFAULT)
   },
 
   onSpeedStick(e) {
@@ -220,7 +186,6 @@ Page({
     this._speedNorm = n
     const speed = this.round(n * Number(this.data.speedMax), 3)
     this._speedCmd = speed
-    this.setData({ speedText: speed.toFixed(2) })
     this.scheduleSend()
   },
 
@@ -229,7 +194,6 @@ Page({
     this._turnNorm = n
     const turn = this.round(n * Number(this.data.turnMax), 3)
     this._turnCmd = turn
-    this.setData({ turnText: turn.toFixed(2) })
     this.scheduleSend()
   },
 
@@ -278,10 +242,6 @@ Page({
     this._turnNorm = 0
     this._lastSentSpeed = null
     this._lastSentTurn = null
-    this.setData({
-      speedText: '0.00',
-      turnText: '0.00'
-    })
     if (this._sendTimer) {
       clearTimeout(this._sendTimer)
       this._sendTimer = null

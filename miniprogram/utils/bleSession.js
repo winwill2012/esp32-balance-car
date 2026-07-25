@@ -3,6 +3,13 @@
  */
 const ble = require('./ble.js')
 
+const DEFAULT_PARAMS = {
+  a0: 0,
+  kp: 25,
+  kd: 0.5,
+  kv: 0.7
+}
+
 const state = {
   scanning: false,
   connecting: false,
@@ -15,11 +22,18 @@ const state = {
   statusCharId: '',
   angleText: '--',
   batteryText: '--',
+  leftSpeedText: '--',
+  rightSpeedText: '--',
   pwmText: '--',
+  calDoneSeq: 0,
+  dzDoneSeq: 0,
   lastMsg: '',
-  kp: 25,
-  kd: 0.5,
-  kv: 0.02
+  a0: DEFAULT_PARAMS.a0,
+  kp: DEFAULT_PARAMS.kp,
+  kd: DEFAULT_PARAMS.kd,
+  kv: DEFAULT_PARAMS.kv,
+  leftDzText: '--',
+  rightDzText: '--'
 }
 
 const listeners = []
@@ -75,7 +89,14 @@ function bindConnectionListener() {
         statusText: '已断开',
         angleText: '--',
         batteryText: '--',
-        pwmText: '--'
+        leftSpeedText: '--',
+        rightSpeedText: '--',
+        pwmText: '--',
+        // 临时调参仅存在于本次连接；断连后 UI 先回默认，重连 GET 再拉 NVS
+        a0: DEFAULT_PARAMS.a0,
+        kp: DEFAULT_PARAMS.kp,
+        kd: DEFAULT_PARAMS.kd,
+        kv: DEFAULT_PARAMS.kv
       })
     }
   }
@@ -94,13 +115,24 @@ function bindValueListener() {
 
     const isTelemetry = parsed.ANG !== undefined
     if (!isTelemetry && !suppressStatus) {
+      if (parsed.A0 !== undefined) patch.a0 = round(parsed.A0, 2)
       if (parsed.KP !== undefined) patch.kp = round(parsed.KP, 2)
       if (parsed.KD !== undefined) patch.kd = round(parsed.KD, 2)
       if (parsed.KV !== undefined) patch.kv = round(parsed.KV, 4)
+      if (parsed.LDZ !== undefined) patch.leftDzText = String(Math.round(parsed.LDZ))
+      if (parsed.RDZ !== undefined) patch.rightDzText = String(Math.round(parsed.RDZ))
     }
     if (parsed.ANG !== undefined) patch.angleText = parsed.ANG.toFixed(2)
-    if (parsed.BAT !== undefined) patch.batteryText = parsed.BAT.toFixed(0)
+    if (parsed.BAT !== undefined) patch.batteryText = parsed.BAT.toFixed(0) + '%'
+    if (parsed.LSP !== undefined) patch.leftSpeedText = parsed.LSP.toFixed(1)
+    if (parsed.RSP !== undefined) patch.rightSpeedText = parsed.RSP.toFixed(1)
     if (parsed.PWM !== undefined) patch.pwmText = parsed.PWM.toFixed(1)
+    if (parsed.CAL === 1) patch.calDoneSeq = state.calDoneSeq + 1
+    if (parsed.DZ === 1) {
+      patch.dzDoneSeq = state.dzDoneSeq + 1
+      if (parsed.LDZ !== undefined) patch.leftDzText = String(Math.round(parsed.LDZ))
+      if (parsed.RDZ !== undefined) patch.rightDzText = String(Math.round(parsed.RDZ))
+    }
 
     setState(patch)
   }
@@ -187,7 +219,14 @@ async function connectDevice(device) {
     bindValueListener()
     await ble.enableNotify(device.deviceId, service.uuid, statusChar.uuid)
     await sleep(200)
-    await sendCmd('GET')
+    // 向芯片拉取 NVS/当前落盘参数（临时未保存参数已在断连时丢弃）
+    try {
+      await sendCmd('GET')
+      await sleep(120)
+      await sendCmd('GET')
+    } catch (e) {
+      console.warn('GET params failed', e)
+    }
     wx.showToast({ title: '连接成功', icon: 'success' })
   } catch (err) {
     console.error(err)
@@ -264,7 +303,13 @@ async function disconnect() {
     statusCharId: '',
     angleText: '--',
     batteryText: '--',
+    leftSpeedText: '--',
+    rightSpeedText: '--',
     pwmText: '--',
+    a0: DEFAULT_PARAMS.a0,
+    kp: DEFAULT_PARAMS.kp,
+    kd: DEFAULT_PARAMS.kd,
+    kv: DEFAULT_PARAMS.kv,
     lastMsg: ''
   })
 }

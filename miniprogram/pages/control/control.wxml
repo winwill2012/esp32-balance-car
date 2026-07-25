@@ -9,23 +9,23 @@
 
     <view class="card dash-card">
       <view class="dash-item">
-        <text class="dash-label">目标速度</text>
-        <text class="dash-value">{{speedText}}</text>
+        <text class="dash-label">左轮速度</text>
+        <text class="dash-value">{{leftSpeedText}}</text>
       </view>
       <view class="dash-divider"></view>
       <view class="dash-item">
-        <text class="dash-label">转向差速</text>
-        <text class="dash-value">{{turnText}}</text>
+        <text class="dash-label">当前倾角</text>
+        <text class="dash-value">{{angleText}}</text>
       </view>
       <view class="dash-divider"></view>
       <view class="dash-item">
-        <text class="dash-label">电量 %</text>
+        <text class="dash-label">当前电量</text>
         <text class="dash-value accent">{{batteryText}}</text>
       </view>
       <view class="dash-divider"></view>
       <view class="dash-item">
-        <text class="dash-label">状态</text>
-        <text class="dash-value {{connected ? 'ok' : 'off'}}">{{connected ? '可遥控' : '未连接'}}</text>
+        <text class="dash-label">右轮速度</text>
+        <text class="dash-value">{{rightSpeedText}}</text>
       </view>
     </view>
 
@@ -34,7 +34,6 @@
         <joystick
           axis="y"
           label="前进 / 后退"
-          hint="上推前进 · 下拉后退"
           disabled="{{!connected}}"
           bind:change="onSpeedStick"
         />
@@ -43,7 +42,6 @@
         <joystick
           axis="x"
           label="左转 / 右转"
-          hint="左推左转 · 右推右转"
           disabled="{{!connected}}"
           bind:change="onTurnStick"
         />
@@ -52,8 +50,15 @@
 
     <view class="card setting-card">
       <view class="setting-top">
-        <text class="setting-title">最大速度</text>
-        <text class="setting-desc">前后满行程 · 1–50</text>
+        <view class="setting-title-wrap">
+          <text class="setting-title">最大速度</text>
+          <view
+            class="setting-help"
+            catchtap="onSettingHelp"
+            data-tip="范围 1–25，过大可能导致翻车"
+          >?</view>
+        </view>
+        <view class="setting-spacer"></view>
         <input
           class="setting-tag"
           type="digit"
@@ -63,7 +68,7 @@
       </view>
       <slider
         min="1"
-        max="50"
+        max="25"
         step="1"
         value="{{speedMax}}"
         activeColor="#059669"
@@ -73,17 +78,23 @@
         bindchange="onSpeedMaxChange"
       />
       <view class="setting-quick">
-        <button class="sbtn" hover-class="none" data-delta="-5" bindtap="onSpeedMaxNudge">−5</button>
         <button class="sbtn" hover-class="none" data-delta="-1" bindtap="onSpeedMaxNudge">−1</button>
+        <button class="sbtn" hover-class="none" bindtap="onSpeedMaxReset">默认</button>
         <button class="sbtn" hover-class="none" data-delta="1" bindtap="onSpeedMaxNudge">+1</button>
-        <button class="sbtn" hover-class="none" data-delta="5" bindtap="onSpeedMaxNudge">+5</button>
       </view>
     </view>
 
-    <view class="card setting-card setting-card--turn">
+    <view class="card setting-card">
       <view class="setting-top">
-        <text class="setting-title">最大转向</text>
-        <text class="setting-desc">左右满行程 · 1–80</text>
+        <view class="setting-title-wrap">
+          <text class="setting-title">最大转向</text>
+          <view
+            class="setting-help"
+            catchtap="onSettingHelp"
+            data-tip="范围 1–50，过大可能导致翻车"
+          >?</view>
+        </view>
+        <view class="setting-spacer"></view>
         <input
           class="setting-tag"
           type="digit"
@@ -93,50 +104,19 @@
       </view>
       <slider
         min="1"
-        max="80"
+        max="50"
         step="1"
         value="{{turnMax}}"
-        activeColor="#ea580c"
+        activeColor="#059669"
         backgroundColor="#d5dde6"
         block-size="22"
         bindchanging="onTurnMaxChanging"
         bindchange="onTurnMaxChange"
       />
       <view class="setting-quick">
-        <button class="sbtn sbtn--turn" hover-class="none" data-delta="-5" bindtap="onTurnMaxNudge">−5</button>
-        <button class="sbtn sbtn--turn" hover-class="none" data-delta="-1" bindtap="onTurnMaxNudge">−1</button>
-        <button class="sbtn sbtn--turn" hover-class="none" data-delta="1" bindtap="onTurnMaxNudge">+1</button>
-        <button class="sbtn sbtn--turn" hover-class="none" data-delta="5" bindtap="onTurnMaxNudge">+5</button>
-      </view>
-    </view>
-
-    <view class="card setting-card setting-card--brake">
-      <view class="setting-top">
-        <text class="setting-title">急刹强度</text>
-        <text class="setting-desc">值越大越剧烈 · 1–100</text>
-        <input
-          class="setting-tag"
-          type="digit"
-          value="{{brakeStrength}}"
-          bindinput="onBrakeStrengthInput"
-        />
-      </view>
-      <slider
-        min="1"
-        max="100"
-        step="1"
-        value="{{brakeStrength}}"
-        activeColor="#2563eb"
-        backgroundColor="#d5dde6"
-        block-size="22"
-        bindchanging="onBrakeStrengthChanging"
-        bindchange="onBrakeStrengthChange"
-      />
-      <view class="setting-quick">
-        <button class="sbtn sbtn--brake" hover-class="none" data-delta="-5" bindtap="onBrakeStrengthNudge">−5</button>
-        <button class="sbtn sbtn--brake" hover-class="none" data-delta="-1" bindtap="onBrakeStrengthNudge">−1</button>
-        <button class="sbtn sbtn--brake" hover-class="none" data-delta="1" bindtap="onBrakeStrengthNudge">+1</button>
-        <button class="sbtn sbtn--brake" hover-class="none" data-delta="5" bindtap="onBrakeStrengthNudge">+5</button>
+        <button class="sbtn" hover-class="none" data-delta="-5" bindtap="onTurnMaxNudge">−5</button>
+        <button class="sbtn" hover-class="none" bindtap="onTurnMaxReset">默认</button>
+        <button class="sbtn" hover-class="none" data-delta="5" bindtap="onTurnMaxNudge">+5</button>
       </view>
     </view>
   </view>

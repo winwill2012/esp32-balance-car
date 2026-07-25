@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <Preferences.h>
+#include <math.h>
 #include "pins.h"
 #include "ble_config.h"
 #include "MPU6050_tockn.h"
@@ -19,6 +21,8 @@ static constexpr float BAT_DIVIDER_RATIO = 4.7037f;
 // 内环： PWM为目标输出
 float kp = 25, ki = 0, kd = 0.5;
 float pwmOut;
+// 机械零点：车真正站稳时传感器倾角（°），控制用 raw - angleOffset
+float angleOffset = 0.0f;
 
 // 外环：速度 → 目标倾角
 float kv = 0.7f; // 先从很小试起
@@ -28,6 +32,8 @@ float targetSpeed = 0.0f; // 实际参与控制的目标速度（斜坡跟随后
 const uint32_t SPEED_DT_MS = 10;
 static uint32_t lastSpeedMs = 0;
 static float speed = 0; // 滤波后的车速（脉冲/周期 或 换算后的单位）
+static float leftSpeed = 0;
+static float rightSpeed = 0;
 static float targetAngle = 0;
 
 // 遥控突变保护：限制目标速度变化率，避免急加速/急反向把车扯倒
@@ -89,7 +95,6 @@ void readAndClearEncoderCounts(int32_t &left, int32_t &right) {
 void setupPins() {
     pinMode(BAT_DETECT, INPUT);
     analogSetPinAttenuation(BAT_DETECT, ADC_11db);
-    pinMode(LED, OUTPUT);
     pinMode(MOTOR_L_EN1, INPUT);
     pinMode(MOTOR_L_EN2, INPUT);
     pinMode(MOTOR_L_IN1, OUTPUT);
@@ -111,6 +116,11 @@ void setupPins() {
 
     ledcSetup(CH_R_IN2, LEDC_FREQ_HZ, LEDC_BITS_WIDTH);
     ledcAttachPin(MOTOR_R_IN2, CH_R_IN2);
+
+    // 信号指示灯：用独立 LEDC 通道做闪烁 / 呼吸
+    ledcSetup(CH_LED, LEDC_LED_FREQ_HZ, LEDC_BITS_WIDTH);
+    ledcAttachPin(LED, CH_LED);
+    ledcWrite(CH_LED, 0);
 
     attachInterrupt(digitalPinToInterrupt(MOTOR_L_EN1), leftMotorCountISR, FALLING);
     attachInterrupt(digitalPinToInterrupt(MOTOR_R_EN1), rightMotorCountISR, FALLING);
@@ -140,6 +150,135 @@ void stopMotors() {
     ledcWrite(CH_R_IN2, 0);
 }
 
+static void loadGyroOffsets() {
+    Preferences prefs;
+    prefs.begin("gyro", true);
+    if (prefs.isKey("ox")) {
+        const float ox = prefs.getFloat("ox", -0.47f);
+        const float oy = prefs.getFloat("oy", 0.55f);
+        const float oz = prefs.getFloat("oz", -1.42f);
+        mpu6050.setGyroOffsets(ox, oy, oz);
+        Serial.printf("[GYRO] NVS 加载偏移 ox=%.3f oy=%.3f oz=%.3f\n", ox, oy, oz);
+    } else {
+        mpu6050.setGyroOffsets(-0.47f, 0.55f, -1.42f);
+        Serial.println("[GYRO] 使用默认偏移");
+    }
+    prefs.end();
+}
+
+static void saveGyroOffsets() {
+    Preferences prefs;
+    prefs.begin("gyro", false);
+    prefs.putFloat("ox", mpu6050.getGyroXoffset());
+    prefs.putFloat("oy", mpu6050.getGyroYoffset());
+    prefs.putFloat("oz", mpu6050.getGyroZoffset());
+    prefs.end();
+    Serial.printf("[GYRO] 已保存偏移 ox=%.3f oy=%.3f oz=%.3f\n",
+                  mpu6050.getGyroXoffset(),
+                  mpu6050.getGyroYoffset(),
+                  mpu6050.getGyroZoffset());
+}
+
+static void runGyroCalibration() {
+    targetSpeedCmd = 0.0f;
+    targetSpeed = 0.0f;
+    turnPwm = 0.0f;
+    pwmOut = 0.0f;
+    targetAngle = 0.0f;
+    stopMotors();
+
+    // 小程序侧已做 3 秒准备倒计时；此处不再额外 delay
+    mpu6050.calcGyroOffsets(false, 0, 0);
+    saveGyroOffsets();
+    bleConfigNotifyCalibDone(
+        mpu6050.getGyroXoffset(),
+        mpu6050.getGyroYoffset(),
+        mpu6050.getGyroZoffset()
+    );
+}
+
+static void loadDeadZones() {
+    Preferences prefs;
+    prefs.begin("motor", true);
+    if (prefs.isKey("ldz")) {
+        leftMotorDeadZone = prefs.getInt("ldz", leftMotorDeadZone);
+    }
+    if (prefs.isKey("rdz")) {
+        rightMotorDeadZone = prefs.getInt("rdz", rightMotorDeadZone);
+    }
+    prefs.end();
+    Serial.printf("[DZ] NVS 加载 左=%d 右=%d\n", leftMotorDeadZone, rightMotorDeadZone);
+}
+
+static void saveDeadZones() {
+    Preferences prefs;
+    prefs.begin("motor", false);
+    prefs.putInt("ldz", leftMotorDeadZone);
+    prefs.putInt("rdz", rightMotorDeadZone);
+    prefs.end();
+    Serial.printf("[DZ] 已保存到 NVS 左=%d 右=%d\n", leftMotorDeadZone, rightMotorDeadZone);
+}
+
+static void runDeadZoneDetection() {
+    const int prevLeft = leftMotorDeadZone;
+    const int prevRight = rightMotorDeadZone;
+
+    targetSpeedCmd = 0.0f;
+    targetSpeed = 0.0f;
+    turnPwm = 0.0f;
+    pwmOut = 0.0f;
+    targetAngle = 0.0f;
+    stopMotors();
+
+    int foundLeft = -1;
+    int foundRight = -1;
+    Serial.println("[DZ] 开始电机死区检测，请保持轮子悬空");
+
+    for (int pwm = 0; pwm <= static_cast<int>(MAX_PWM); pwm++) {
+        int32_t leftCount = 0;
+        int32_t rightCount = 0;
+        readAndClearEncoderCounts(leftCount, rightCount);
+        // 检测时不加死区补偿，直接输出原始 PWM
+        writeMotorChannel(CH_L_IN1, CH_L_IN2, pwm, 0);
+        writeMotorChannel(CH_R_IN1, CH_R_IN2, pwm, 0);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        readAndClearEncoderCounts(leftCount, rightCount);
+        Serial.printf("[DZ] PWM=%d 左计数=%ld 右计数=%ld\n",
+                      pwm,
+                      static_cast<long>(leftCount),
+                      static_cast<long>(rightCount));
+
+        if (foundLeft < 0 && abs(leftCount) >= 10) {
+            foundLeft = pwm;
+            Serial.printf("[DZ] 左电机启动 PWM=%d\n", pwm);
+        }
+        if (foundRight < 0 && abs(rightCount) >= 10) {
+            foundRight = pwm;
+            Serial.printf("[DZ] 右电机启动 PWM=%d\n", pwm);
+        }
+        if (foundLeft >= 0 && foundRight >= 0) {
+            break;
+        }
+    }
+
+    stopMotors();
+
+    if (foundLeft >= 0 && foundRight >= 0) {
+        leftMotorDeadZone = foundLeft;
+        rightMotorDeadZone = foundRight;
+        saveDeadZones();
+        bleConfigNotifyDeadZoneDone(leftMotorDeadZone, rightMotorDeadZone);
+        Serial.printf("[DZ] 检测完成 左=%d 右=%d\n", leftMotorDeadZone, rightMotorDeadZone);
+    } else {
+        leftMotorDeadZone = prevLeft > 0 ? prevLeft : 41;
+        rightMotorDeadZone = prevRight > 0 ? prevRight : 41;
+        // 仍通知当前值，便于小程序结束等待；DZ=1 表示流程结束
+        bleConfigNotifyDeadZoneDone(leftMotorDeadZone, rightMotorDeadZone);
+        Serial.printf("[DZ] 检测未完成，保留原值 左=%d 右=%d\n",
+                      leftMotorDeadZone, rightMotorDeadZone);
+    }
+}
+
 void driveMotor(const int pwm) {
     // turnPwm>0：左轮加快、右轮减慢 → 右转
     leftPwm = constrain(pwm + static_cast<int>(turnPwm), -static_cast<int>(MAX_PWM), static_cast<int>(MAX_PWM));
@@ -148,53 +287,66 @@ void driveMotor(const int pwm) {
     writeMotorChannel(CH_R_IN1, CH_R_IN2, rightPwm, rightMotorDeadZone);
 }
 
-// 检测电机死区
+// 兼容旧接口：改为同步检测，由 PID 任务调用
 void detectDeadZone() {
+    runDeadZoneDetection();
+}
+
+void startStatusLedProcess() {
     xTaskCreate([](void *) {
-        leftMotorDeadZone = -1;
-        rightMotorDeadZone = -1;
-        Serial.println("开始电机死区检测");
-        for (int pwm = 0; pwm <= MAX_PWM; pwm++) {
-            int32_t leftCount;
-            int32_t rightCount;
-            // 清除上一个 PWM 档位留下的计数
-            readAndClearEncoderCounts(leftCount, rightCount);
-            driveMotor(pwm);
-            vTaskDelay(pdMS_TO_TICKS(100));
-            readAndClearEncoderCounts(leftCount, rightCount);
-            Serial.printf("PWM=%d, 左计数=%ld, 右计数=%ld\n", pwm,
-                          static_cast<long>(leftCount),
-                          static_cast<long>(rightCount));
+        bool blinkOn = false;
+        uint32_t lastBlinkMs = 0;
+        float breathPhase = 0.0f;
+        const uint32_t blinkIntervalMs = 350;
+        const float breathStep = 0.06f; // 约 2~3 秒一个呼吸周期
 
-            if (leftMotorDeadZone < 0 &&
-                abs(leftCount) >= 10) {
-                leftMotorDeadZone = pwm;
-                Serial.printf("左电机启动 PWM=%d\n", pwm);
-            }
-
-            if (rightMotorDeadZone < 0 &&
-                abs(rightCount) >= 10) {
-                rightMotorDeadZone = pwm;
-                Serial.printf("右电机启动 PWM=%d\n", pwm);
-            }
-
-            if (leftMotorDeadZone >= 0 && rightMotorDeadZone >= 0) {
-                break;
+        while (true) {
+            if (bleConfigIsConnected()) {
+                // 已连接：正弦呼吸灯
+                breathPhase += breathStep;
+                if (breathPhase > 6.2831853f) {
+                    breathPhase -= 6.2831853f;
+                }
+                const float wave = 0.5f * (1.0f + sinf(breathPhase));
+                // 略抬高最低亮度，避免“熄灭感”
+                const int duty = static_cast<int>(20.0f + wave * 235.0f);
+                ledcWrite(CH_LED, constrain(duty, 0, static_cast<int>(MAX_PWM)));
+                vTaskDelay(pdMS_TO_TICKS(20));
+            } else {
+                // 未连接：持续闪烁
+                const uint32_t now = millis();
+                if (now - lastBlinkMs >= blinkIntervalMs) {
+                    lastBlinkMs = now;
+                    blinkOn = !blinkOn;
+                    ledcWrite(CH_LED, blinkOn ? static_cast<int>(MAX_PWM) : 0);
+                }
+                breathPhase = 0.0f;
+                vTaskDelay(pdMS_TO_TICKS(20));
             }
         }
-        driveMotor(0);
-        Serial.printf("检测完成：左电机死区=%d，右电机死区=%d，请将数值回写到代码中\n", leftMotorDeadZone, rightMotorDeadZone);
-        vTaskDelete(nullptr);
-    }, "detectDeadZone", 4096, nullptr, 1, nullptr);
+    }, "StatusLed", 2048, nullptr, 1, nullptr);
 }
 
 void startPIDProcess() {
     xTaskCreate([](void *) {
         while (true) {
+            if (bleConfigConsumeGyroCalibRequest()) {
+                runGyroCalibration();
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
+            if (bleConfigConsumeDeadZoneRequest()) {
+                runDeadZoneDetection();
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
+
             mpu6050.update();
-            const float angle = mpu6050.getAngleX();
+            const float rawAngle = mpu6050.getAngleX();
+            // 扣除机械零点后参与内环；倾倒保护仍看原始倾角
+            const float angle = rawAngle - angleOffset;
             // 小车倾斜角度超过阈值，应该救不回来了，电机直接熄火
-            if (abs(angle) > MAX_LEAN) {
+            if (abs(rawAngle) > MAX_LEAN) {
                 pwmOut = 0;
                 targetSpeed = 0;
                 stopMotors();
@@ -202,7 +354,7 @@ void startPIDProcess() {
                 const uint32_t nowFallen = millis();
                 if (nowFallen - lastFallenNotifyMs >= 100) {
                     lastFallenNotifyMs = nowFallen;
-                    bleConfigNotifyStatus(angle, readBatteryPercent(), 0);
+                    bleConfigNotifyStatus(rawAngle, readBatteryPercent(), 0, 0, 0);
                 }
                 vTaskDelay(pdMS_TO_TICKS(1));
                 continue;
@@ -215,9 +367,10 @@ void startPIDProcess() {
                 int32_t leftCount = 0, rightCount = 0;
                 readAndClearEncoderCounts(leftCount, rightCount);
                 // 两轮平均；注意左右编码器方向是否相反，必要时一边取负
-                const float rawSpeed = 0.5f * (leftCount + rightCount);
                 // 简单低通，减弱编码器噪声，保持速度变化趋势即可
-                speed = 0.7f * speed + 0.3f * rawSpeed;
+                leftSpeed = 0.7f * leftSpeed + 0.3f * leftCount;
+                rightSpeed = 0.7f * rightSpeed + 0.3f * rightCount;
+                speed = 0.5f * (leftSpeed + rightSpeed);
 
                 // 目标速度斜坡：遥控可瞬间反向，控制量平滑过渡
                 const float maxDelta = speedSlew * dt;
@@ -242,9 +395,9 @@ void startPIDProcess() {
             if (now - lastNotifyMs >= 100) {
                 lastNotifyMs = now;
                 const float batPct = readBatteryPercent();
-                bleConfigNotifyStatus(angle, batPct, pwmOut);
-                Serial.printf("倾角: %.2f 目标角: %.2f spd: %.2f/%.2f pwm: %.1f turn: %.1f\n",
-                              angle, targetAngle, targetSpeed, targetSpeedCmd, pwmOut, turnPwm);
+                bleConfigNotifyStatus(rawAngle, batPct, pwmOut, leftSpeed, rightSpeed);
+                Serial.printf("倾角: %.2f(raw %.2f) 目标角: %.2f spd: %.2f/%.2f pwm: %.1f turn: %.1f\n",
+                              angle, rawAngle, targetAngle, targetSpeed, targetSpeedCmd, pwmOut, turnPwm);
             }
             vTaskDelay(pdMS_TO_TICKS(1));
         }
@@ -256,13 +409,23 @@ void setup() {
     setupPins();
     Wire.begin(MPU6050_SDA, MPU6050_SCL);
     mpu6050.begin();
-    // mpu6050.calcGyroOffsets(true);
-    mpu6050.setGyroOffsets(-0.47, 0.55, -1.42);
+    loadGyroOffsets();
+    loadDeadZones();
     // delay(3000);
-    // detectDeadZone();
-    bleConfigBegin(&kp, &kd, &kv, &targetSpeedCmd, &turnPwm, &speedSlew);
+    bleConfigBegin(
+        &kp,
+        &kd,
+        &kv,
+        &angleOffset,
+        &leftMotorDeadZone,
+        &rightMotorDeadZone,
+        &targetSpeedCmd,
+        &turnPwm,
+        &speedSlew
+    );
 
-    // 启动PID控制进程
+    // 启动信号灯与 PID 控制进程
+    startStatusLedProcess();
     startPIDProcess();
 }
 

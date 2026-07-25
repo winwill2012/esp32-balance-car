@@ -9,10 +9,6 @@ Component({
       type: String,
       value: ''
     },
-    hint: {
-      type: String,
-      value: ''
-    },
     disabled: {
       type: Boolean,
       value: false

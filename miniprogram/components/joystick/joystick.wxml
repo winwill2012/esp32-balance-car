@@ -17,6 +17,5 @@
   </view>
   <view class="joy-meta">
     <text class="joy-title">{{label}}</text>
-    <text class="joy-hint">{{hint}}</text>
   </view>
 </view>

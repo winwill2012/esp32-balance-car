@@ -19,9 +19,11 @@
 #define CH_L_IN2 1
 #define CH_R_IN1 2
 #define CH_R_IN2 3
+#define CH_LED 4
 #define LEDC_BITS_WIDTH 8
 #define MAX_PWM (pow(2, LEDC_BITS_WIDTH) - 1)
 #define LEDC_FREQ_HZ 1000
+#define LEDC_LED_FREQ_HZ 5000
 
 #define BAT_DETECT 34
 #define LED 21

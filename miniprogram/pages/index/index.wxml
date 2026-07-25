@@ -9,17 +9,17 @@
 
     <view class="card meter-card">
       <view class="meter-item">
-        <text class="meter-label">倾角 °</text>
+        <text class="meter-label">当前倾角</text>
         <text class="meter-value">{{angleText}}</text>
       </view>
       <view class="meter-divider"></view>
       <view class="meter-item">
-        <text class="meter-label">电池电量 %</text>
+        <text class="meter-label">当前电量</text>
         <text class="meter-value accent">{{batteryText}}</text>
       </view>
       <view class="meter-divider"></view>
       <view class="meter-item">
-        <text class="meter-label">PWM</text>
+        <text class="meter-label">输出 PWM</text>
         <text class="meter-value">{{pwmText}}</text>
       </view>
     </view>
@@ -27,14 +27,84 @@
     <view class="tune-area {{connected ? 'is-live' : 'is-locked'}}">
       <view class="card loop-card loop-inner">
         <view class="loop-head">
+          <view class="loop-badge">安装</view>
+          <view class="loop-meta">
+            <view class="loop-title-row">
+              <text class="loop-title">机械零点</text>
+              <view
+                class="loop-help"
+                catchtap="onTuneHelp"
+                data-tip="手扶车找到最稳姿态，把当前倾角填到这里。\n范围 ±5°；未持久化时断连失效。"
+              >?</view>
+            </view>
+            <text class="loop-flow">站稳时的传感器倾角偏置</text>
+          </view>
+        </view>
+
+        <view class="param-block">
+          <view class="param-top">
+            <text class="param-title">A0</text>
+            <text class="param-desc">平衡倾角 · −5–5°</text>
+            <input
+              class="param-tag"
+              type="text"
+              value="{{a0}}"
+              bindinput="onA0Input"
+              disabled="{{!connected}}"
+            />
+          </view>
+          <slider
+            class="param-slider"
+            min="-5"
+            max="5"
+            step="0.1"
+            value="{{a0}}"
+            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
+            backgroundColor="#d5dde6"
+            block-size="22"
+            disabled="{{!connected}}"
+            bindchanging="onA0Changing"
+            bindchange="onA0Change"
+          />
+          <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="a0" data-delta="-0.5" bindtap="onNudge">−0.5</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="a0" data-delta="-0.1" bindtap="onNudge">−0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="a0" bindtap="onResetParam">默认</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="a0" data-delta="0.1" bindtap="onNudge">+0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="a0" data-delta="0.5" bindtap="onNudge">+0.5</button>
+          </view>
+        </view>
+
+        <view class="dz-board">
+          <view class="dz-item">
+            <text class="dz-label">左电机死区 PWM</text>
+            <text class="dz-value">{{leftDzText}}</text>
+          </view>
+          <view class="dz-divider"></view>
+          <view class="dz-item">
+            <text class="dz-label">右电机死区 PWM</text>
+            <text class="dz-value">{{rightDzText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card loop-card loop-inner">
+        <view class="loop-head">
           <view class="loop-badge">内环</view>
           <view class="loop-meta">
-            <text class="loop-title">倾角 PD</text>
+            <view class="loop-title-row">
+              <text class="loop-title">倾角 PD</text>
+              <view
+                class="loop-help"
+                catchtap="onTuneHelp"
+                data-tip="调参顺序：先机械零点，再 Kp，再 Kd；建议先把 Kv 置 0。\n技巧：手扶车身，从小到大加 Kp 到勉强站稳；再加 Kd 抑制晃动，过大易发颤发硬。"
+              >?</view>
+            </view>
             <text class="loop-flow">目标倾角 → PWM</text>
           </view>
         </view>
 
-        <view class="param-block accent-kp">
+        <view class="param-block">
           <view class="param-top">
             <text class="param-title">Kp</text>
             <text class="param-desc">比例增益 · 0–200</text>
@@ -62,6 +132,7 @@
           <view class="quick-row">
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-5" bindtap="onNudge">−5</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-1" bindtap="onNudge">−1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" bindtap="onResetParam">默认</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="1" bindtap="onNudge">+1</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="5" bindtap="onNudge">+5</button>
           </view>
@@ -69,7 +140,7 @@
 
         <view class="param-split"></view>
 
-        <view class="param-block accent-kd">
+        <view class="param-block">
           <view class="param-top">
             <text class="param-title">Kd</text>
             <text class="param-desc">微分增益 · 0–20</text>
@@ -85,9 +156,9 @@
             class="param-slider"
             min="0"
             max="20"
-            step="0.1"
+            step="0.01"
             value="{{kd}}"
-            activeColor="{{connected ? '#2563eb' : '#9ca3af'}}"
+            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
             backgroundColor="#d5dde6"
             block-size="22"
             disabled="{{!connected}}"
@@ -95,10 +166,11 @@
             bindchange="onKdChange"
           />
           <view class="quick-row">
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.5" bindtap="onNudge">−0.5</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.1" bindtap="onNudge">−0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.01" bindtap="onNudge">−0.01</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" bindtap="onResetParam">默认</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.01" bindtap="onNudge">+0.01</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.1" bindtap="onNudge">+0.1</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.5" bindtap="onNudge">+0.5</button>
           </view>
         </view>
       </view>
@@ -111,12 +183,19 @@
         <view class="loop-head">
           <view class="loop-badge">外环</view>
           <view class="loop-meta">
-            <text class="loop-title">速度环</text>
+            <view class="loop-title-row">
+              <text class="loop-title">速度环</text>
+              <view
+                class="loop-help"
+                catchtap="onTuneHelp"
+                data-tip="调参顺序：内环站稳后再调 Kv。\n技巧：从小到大缓慢增加；过大易前后冲倒。调好后点「持久化到芯片」。"
+              >?</view>
+            </view>
             <text class="loop-flow">速度误差 → 目标倾角</text>
           </view>
         </view>
 
-        <view class="param-block accent-kv">
+        <view class="param-block">
           <view class="param-top">
             <text class="param-title">Kv</text>
             <text class="param-desc">速度增益 · 0–2</text>
@@ -134,7 +213,7 @@
             max="2"
             step="0.01"
             value="{{kv}}"
-            activeColor="{{connected ? '#ea580c' : '#9ca3af'}}"
+            activeColor="{{connected ? '#0f766e' : '#9ca3af'}}"
             backgroundColor="#d5dde6"
             block-size="22"
             disabled="{{!connected}}"
@@ -144,15 +223,28 @@
           <view class="quick-row">
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="-0.1" bindtap="onNudge">−0.1</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="-0.01" bindtap="onNudge">−0.01</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" bindtap="onResetParam">默认</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="0.01" bindtap="onNudge">+0.01</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kv" data-delta="0.1" bindtap="onNudge">+0.1</button>
           </view>
         </view>
       </view>
 
-      <view class="actions bottom">
-        <button class="btn save" hover-class="none" disabled="{{!connected}}" bindtap="onSave">持久化到芯片</button>
+      <view class="actions actions--three bottom">
+        <button class="btn save btn--compact" hover-class="none" disabled="{{!connected || calibrating}}" bindtap="onSave">持久化到芯片</button>
+        <button class="btn calib btn--compact" hover-class="none" disabled="{{!connected || calibrating}}" bindtap="onGyroCalib">陀螺仪校准</button>
+        <button class="btn calib btn--compact" hover-class="none" disabled="{{!connected || calibrating}}" bindtap="onDeadZoneDetect">检测电机死区</button>
       </view>
+    </view>
+  </view>
+
+  <view class="cal-mask" wx:if="{{calibrating}}">
+    <view class="cal-panel">
+      <text class="cal-count" wx:if="{{calCount > 0}}">{{calCount}}</text>
+      <text class="cal-tip">{{calTip}}</text>
+      <text class="cal-phase" wx:if="{{calPhase === 'prepare'}}">准备中</text>
+      <text class="cal-phase" wx:elif="{{calPhase === 'running'}}">进行中</text>
+      <text class="cal-phase" wx:else>完成</text>
     </view>
   </view>
 </view>

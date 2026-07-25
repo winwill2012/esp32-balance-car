@@ -77,20 +77,35 @@
   margin-bottom: 8rpx;
 }
 
-.setting-title {
+.setting-title-wrap {
   flex-shrink: 0;
-  width: 120rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.setting-title {
   font-size: 28rpx;
   font-weight: 700;
   color: #047857;
 }
 
-.setting-desc {
+.setting-help {
+  width: 30rpx;
+  height: 30rpx;
+  line-height: 30rpx;
+  text-align: center;
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #047857;
+  background: rgba(5, 150, 105, 0.12);
+  border: 2rpx solid rgba(5, 150, 105, 0.45);
+  border-radius: 999rpx;
+}
+
+.setting-spacer {
   flex: 1;
   min-width: 0;
-  font-size: 22rpx;
-  color: #64748b;
-  text-align: center;
 }
 
 .setting-tag {
@@ -133,44 +148,6 @@
 
 .sbtn::after {
   border: none;
-}
-
-.setting-card--turn {
-  background: linear-gradient(180deg, #fff4eb 0%, #fffaf6 100%);
-  border-color: rgba(234, 88, 12, 0.18);
-}
-
-.setting-card--turn .setting-title {
-  color: #c2410c;
-}
-
-.setting-card--turn .setting-tag {
-  color: #9a3412;
-  background: #ffedd5;
-}
-
-.sbtn--turn {
-  color: #c2410c;
-  border-color: rgba(234, 88, 12, 0.42);
-}
-
-.setting-card--brake {
-  background: linear-gradient(180deg, #eef4ff 0%, #f7f9fc 100%);
-  border-color: rgba(37, 99, 235, 0.18);
-}
-
-.setting-card--brake .setting-title {
-  color: #1d4ed8;
-}
-
-.setting-card--brake .setting-tag {
-  color: #1e40af;
-  background: #dbeafe;
-}
-
-.sbtn--brake {
-  color: #1d4ed8;
-  border-color: rgba(37, 99, 235, 0.42);
 }
 
 .stick-row {

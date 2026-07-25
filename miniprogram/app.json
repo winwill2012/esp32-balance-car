@@ -5,8 +5,8 @@
   ],
   "window": {
     "navigationBarTitleText": "平衡车调参",
-    "navigationBarBackgroundColor": "#6f8f9c",
-    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
     "backgroundColor": "#6f8f9c",
     "backgroundTextStyle": "light"
   },

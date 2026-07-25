@@ -102,16 +102,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4rpx;
 }
 
 .joy-title {
   font-size: 28rpx;
   font-weight: 700;
   color: #123028;
-}
-
-.joy-hint {
-  font-size: 20rpx;
-  color: #4b635a;
 }
