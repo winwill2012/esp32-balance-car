@@ -2,15 +2,16 @@ const session = require('../../utils/bleSession.js')
 
 const PARAM_LIMITS = {
   a0: { min: -5, max: 5, digits: 2 },
-  kp: { min: 0, max: 200, digits: 2 },
+  // 10 位 PWM（0–1023）约为原 8 位的 4 倍，Kp/Kd 同步放大
+  kp: { min: 0, max: 300, digits: 2 },
   kd: { min: 0, max: 20, digits: 2 },
   kv: { min: 0, max: 2, digits: 4 }
 }
 
 const PARAM_DEFAULTS = {
   a0: 0,
-  kp: 25,
-  kd: 0.5,
+  kp: 100,
+  kd: 3.5,
   kv: 0.7
 }
 
@@ -343,8 +344,8 @@ Page({
 
     this.setData({
       calPhase: 'running',
-      calTip: '检测中，请保持轮子悬空',
-      calCount: 30
+      calTip: '检测中（共 3 次取平均），请保持轮子悬空',
+      calCount: 90
     })
 
     try {
@@ -354,7 +355,8 @@ Page({
       return
     }
 
-    for (let i = 30; i >= 1; i--) {
+    // 固件会连续扫描 3 次再平均，预留更长等待
+    for (let i = 90; i >= 1; i--) {
       if (!this.data.calibrating) return
       this.setData({ calCount: i })
       if (this._dzDone) break
@@ -389,7 +391,7 @@ Page({
         true,
         '',
         '死区检测完成',
-        `左电机死区 PWM：${s.leftDzText}\n右电机死区 PWM：${s.rightDzText}\n已自动保存到芯片。`
+        `左电机死区 PWM：${s.leftDzText}\n右电机死区 PWM：${s.rightDzText}\n已取 3 次平均值并保存到芯片。`
       )
     } else {
       this.finishBusy(false, '检测超时，请重试')

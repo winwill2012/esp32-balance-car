@@ -55,7 +55,7 @@
           <view
             class="setting-help"
             catchtap="onSettingHelp"
-            data-tip="范围 1–25，过大可能导致翻车"
+            data-tip="范围 0–15（编码器速度单位），过大可能导致翻车"
           >?</view>
         </view>
         <view class="setting-spacer"></view>
@@ -67,8 +67,8 @@
         />
       </view>
       <slider
-        min="1"
-        max="25"
+        min="0"
+        max="15"
         step="1"
         value="{{speedMax}}"
         activeColor="#059669"
@@ -91,7 +91,7 @@
           <view
             class="setting-help"
             catchtap="onSettingHelp"
-            data-tip="范围 1–50，过大可能导致翻车"
+            data-tip="范围 0–300（10 位 PWM 差速），过大可能导致翻车"
           >?</view>
         </view>
         <view class="setting-spacer"></view>
@@ -103,9 +103,9 @@
         />
       </view>
       <slider
-        min="1"
-        max="50"
-        step="1"
+        min="0"
+        max="300"
+        step="5"
         value="{{turnMax}}"
         activeColor="#059669"
         backgroundColor="#d5dde6"
@@ -114,9 +114,9 @@
         bindchange="onTurnMaxChange"
       />
       <view class="setting-quick">
-        <button class="sbtn" hover-class="none" data-delta="-5" bindtap="onTurnMaxNudge">−5</button>
+        <button class="sbtn" hover-class="none" data-delta="-10" bindtap="onTurnMaxNudge">−10</button>
         <button class="sbtn" hover-class="none" bindtap="onTurnMaxReset">默认</button>
-        <button class="sbtn" hover-class="none" data-delta="5" bindtap="onTurnMaxNudge">+5</button>
+        <button class="sbtn" hover-class="none" data-delta="10" bindtap="onTurnMaxNudge">+10</button>
       </view>
     </view>
   </view>

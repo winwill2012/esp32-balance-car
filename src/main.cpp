@@ -8,18 +8,18 @@
 
 MPU6050 mpu6050(Wire);
 
-int leftMotorDeadZone = 41; // 左电机死区
-int rightMotorDeadZone = 41; // 右电机死区
+int leftMotorDeadZone = 164; // 左电机死区（10 位 PWM，约等于原 8 位的 41）
+int rightMotorDeadZone = 164; // 右电机死区
 
 int leftPwm = 0, rightPwm = 0; // 左右电机实际需要输出的pwm
 // 允许小车倾斜的最大角度（固件固定，不再由小程序下发）
-static constexpr float MAX_LEAN = 60.0f;
+static constexpr float MAX_LEAN = 45.0f;
 // 电池 ADC：分压比（BAT+ → R1 → ADC → R2 → GND，ratio=(R1+R2)/R2）
 // R1 = 100K,R2 = 27K
 static constexpr float BAT_DIVIDER_RATIO = 4.7037f;
 
 // 内环： PWM为目标输出
-float kp = 25, ki = 0, kd = 0.5;
+float kp = 100, ki = 0, kd = 3.5f; // 10 位 PWM，约为原 8 位默认值的 4 倍
 float pwmOut;
 // 机械零点：车真正站稳时传感器倾角（°），控制用 raw - angleOffset
 float angleOffset = 0.0f;
@@ -37,10 +37,10 @@ static float rightSpeed = 0;
 static float targetAngle = 0;
 
 // 遥控突变保护：限制目标速度变化率，避免急加速/急反向把车扯倒
-// 急刹强度（每秒最大变化量），值越大越剧烈；可由小程序 SLW= 配置
+// 急刹强度（每秒最大变化量），值越大越剧烈；
 float speedSlew = 25.0f;
 // 外环输出的目标倾角限幅（远小于倾倒阈值，急减速时也不要猛仰/猛俯）
-static constexpr float MAX_TARGET_ANGLE = 45.0f;
+static constexpr float MAX_TARGET_ANGLE = 15.0f;
 
 // 转向差速（遥控写入，松手/断连归零；正值右转）
 float turnPwm = 0.0f;
@@ -219,20 +219,11 @@ static void saveDeadZones() {
     Serial.printf("[DZ] 已保存到 NVS 左=%d 右=%d\n", leftMotorDeadZone, rightMotorDeadZone);
 }
 
-static void runDeadZoneDetection() {
-    const int prevLeft = leftMotorDeadZone;
-    const int prevRight = rightMotorDeadZone;
-
-    targetSpeedCmd = 0.0f;
-    targetSpeed = 0.0f;
-    turnPwm = 0.0f;
-    pwmOut = 0.0f;
-    targetAngle = 0.0f;
-    stopMotors();
-
+// 单次死区扫描：找到左右电机刚启动的 PWM；成功返回 true
+static bool detectDeadZoneOnce(int round, int &outLeft, int &outRight) {
     int foundLeft = -1;
     int foundRight = -1;
-    Serial.println("[DZ] 开始电机死区检测，请保持轮子悬空");
+    Serial.printf("[DZ] 第 %d 次检测开始\n", round);
 
     for (int pwm = 0; pwm <= static_cast<int>(MAX_PWM); pwm++) {
         int32_t leftCount = 0;
@@ -243,18 +234,19 @@ static void runDeadZoneDetection() {
         writeMotorChannel(CH_R_IN1, CH_R_IN2, pwm, 0);
         vTaskDelay(pdMS_TO_TICKS(100));
         readAndClearEncoderCounts(leftCount, rightCount);
-        Serial.printf("[DZ] PWM=%d 左计数=%ld 右计数=%ld\n",
+        Serial.printf("[DZ] #%d PWM=%d 左计数=%ld 右计数=%ld\n",
+                      round,
                       pwm,
                       static_cast<long>(leftCount),
                       static_cast<long>(rightCount));
 
         if (foundLeft < 0 && abs(leftCount) >= 10) {
             foundLeft = pwm;
-            Serial.printf("[DZ] 左电机启动 PWM=%d\n", pwm);
+            Serial.printf("[DZ] #%d 左电机启动 PWM=%d\n", round, pwm);
         }
         if (foundRight < 0 && abs(rightCount) >= 10) {
             foundRight = pwm;
-            Serial.printf("[DZ] 右电机启动 PWM=%d\n", pwm);
+            Serial.printf("[DZ] #%d 右电机启动 PWM=%d\n", round, pwm);
         }
         if (foundLeft >= 0 && foundRight >= 0) {
             break;
@@ -262,16 +254,57 @@ static void runDeadZoneDetection() {
     }
 
     stopMotors();
-
+    outLeft = foundLeft;
+    outRight = foundRight;
     if (foundLeft >= 0 && foundRight >= 0) {
-        leftMotorDeadZone = foundLeft;
-        rightMotorDeadZone = foundRight;
+        Serial.printf("[DZ] #%d 完成 左=%d 右=%d\n", round, foundLeft, foundRight);
+        return true;
+    }
+    Serial.printf("[DZ] #%d 未完成 左=%d 右=%d\n", round, foundLeft, foundRight);
+    return false;
+}
+
+static void runDeadZoneDetection() {
+    const int prevLeft = leftMotorDeadZone;
+    const int prevRight = rightMotorDeadZone;
+    constexpr int kRounds = 3;
+
+    targetSpeedCmd = 0.0f;
+    targetSpeed = 0.0f;
+    turnPwm = 0.0f;
+    pwmOut = 0.0f;
+    targetAngle = 0.0f;
+    stopMotors();
+
+    Serial.println("[DZ] 开始电机死区检测（3 次取平均），请保持轮子悬空");
+
+    int sumLeft = 0;
+    int sumRight = 0;
+    int okCount = 0;
+
+    for (int round = 1; round <= kRounds; round++) {
+        int foundLeft = -1;
+        int foundRight = -1;
+        if (detectDeadZoneOnce(round, foundLeft, foundRight)) {
+            sumLeft += foundLeft;
+            sumRight += foundRight;
+            okCount++;
+        }
+        // 轮间停顿，让轮子停稳，降低惯性干扰
+        vTaskDelay(pdMS_TO_TICKS(400));
+    }
+
+    if (okCount > 0) {
+        // 四舍五入取整
+        leftMotorDeadZone = (sumLeft + okCount / 2) / okCount;
+        rightMotorDeadZone = (sumRight + okCount / 2) / okCount;
         saveDeadZones();
         bleConfigNotifyDeadZoneDone(leftMotorDeadZone, rightMotorDeadZone);
-        Serial.printf("[DZ] 检测完成 左=%d 右=%d\n", leftMotorDeadZone, rightMotorDeadZone);
+        Serial.printf("[DZ] 检测完成（有效 %d/%d）平均 左=%d 右=%d\n",
+                      okCount, kRounds, leftMotorDeadZone, rightMotorDeadZone);
     } else {
-        leftMotorDeadZone = prevLeft > 0 ? prevLeft : 41;
-        rightMotorDeadZone = prevRight > 0 ? prevRight : 41;
+        leftMotorDeadZone = prevLeft > 0 ? prevLeft : 164;
+        rightMotorDeadZone = prevRight > 0 ? prevRight : 164;
         // 仍通知当前值，便于小程序结束等待；DZ=1 表示流程结束
         bleConfigNotifyDeadZoneDone(leftMotorDeadZone, rightMotorDeadZone);
         Serial.printf("[DZ] 检测未完成，保留原值 左=%d 右=%d\n",

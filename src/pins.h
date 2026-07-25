@@ -20,7 +20,7 @@
 #define CH_R_IN1 2
 #define CH_R_IN2 3
 #define CH_LED 4
-#define LEDC_BITS_WIDTH 8
+#define LEDC_BITS_WIDTH 10
 #define MAX_PWM (pow(2, LEDC_BITS_WIDTH) - 1)
 #define LEDC_FREQ_HZ 1000
 #define LEDC_LED_FREQ_HZ 5000

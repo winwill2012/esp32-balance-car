@@ -9,14 +9,14 @@
  * 遥测: ANG=xx,BAT=xx,PWM=xx,LSP=xx,RSP=xx
  * 应答: OK KP=xx,KD=xx,KV=xx,A0=xx,LDZ=xx,RDZ=xx
  * 校准: CAL=0 开始，CAL=1,GX=,GY=,GZ= 完成
- * 死区: DZ=0 开始，DZ=1,LDZ=,RDZ= 完成（并自动写入 NVS）
+ * 死区: DZ=0 开始，DZ=1,LDZ=,RDZ= 完成（3 次检测取平均后写入 NVS）
  * A0: 机械零点（平衡倾角偏置，单位 °，范围 ±5）
  * LDZ/RDZ: 左右电机死区 PWM
  * SPD: 目标速度 targetSpeed，前进为正、后退为负
  * TRN: 转向差速 turnPwm，右转为正、左转为负
  * SLW: 急刹强度（目标速度斜坡），值越大越剧烈
  * GCAL: 陀螺仪零偏校准（保持静止）
- * DZCAL: 电机死区检测（轮子悬空）
+ * DZCAL: 电机死区检测（轮子悬空，连续 3 次取平均）
  */
 
 const DEVICE_NAME = 'ESP32-Car'

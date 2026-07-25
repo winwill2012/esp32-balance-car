@@ -107,7 +107,7 @@
         <view class="param-block">
           <view class="param-top">
             <text class="param-title">Kp</text>
-            <text class="param-desc">比例增益 · 0–200</text>
+            <text class="param-desc">比例增益 · 0–300</text>
             <input
               class="param-tag"
               type="digit"
@@ -119,8 +119,8 @@
           <slider
             class="param-slider"
             min="0"
-            max="200"
-            step="0.5"
+            max="300"
+            step="1"
             value="{{kp}}"
             activeColor="{{connected ? '#059669' : '#9ca3af'}}"
             backgroundColor="#d5dde6"
@@ -130,11 +130,11 @@
             bindchange="onKpChange"
           />
           <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-20" bindtap="onNudge">−20</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-5" bindtap="onNudge">−5</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="-1" bindtap="onNudge">−1</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" bindtap="onResetParam">默认</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="1" bindtap="onNudge">+1</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="5" bindtap="onNudge">+5</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kp" data-delta="20" bindtap="onNudge">+20</button>
           </view>
         </view>
 
@@ -166,11 +166,11 @@
             bindchange="onKdChange"
           />
           <view class="quick-row">
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-1" bindtap="onNudge">−1</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.1" bindtap="onNudge">−0.1</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.01" bindtap="onNudge">−0.01</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" bindtap="onResetParam">默认</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.01" bindtap="onNudge">+0.01</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.1" bindtap="onNudge">+0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="1" bindtap="onNudge">+1</button>
           </view>
         </view>
       </view>
