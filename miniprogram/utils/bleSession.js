@@ -5,9 +5,9 @@ const ble = require('./ble.js')
 
 const DEFAULT_PARAMS = {
   a0: 0,
-  kp: 100,
-  kd: 3.5,
-  kv: 0.7
+  kp: 80,
+  kd: 1.2,
+  kv: 0.68
 }
 
 const state = {

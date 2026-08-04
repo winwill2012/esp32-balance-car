@@ -7,7 +7,7 @@
 
 #define  MOTOR_L_IN1 22
 #define  MOTOR_L_IN2 23
-#define  MOTOR_L_EN1 12
+#define  MOTOR_L_EN1 13
 #define  MOTOR_L_EN2 14
 
 #define  MOTOR_R_IN1 19

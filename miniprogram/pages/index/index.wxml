@@ -166,11 +166,11 @@
             bindchange="onKdChange"
           />
           <view class="quick-row">
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-1" bindtap="onNudge">−1</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.1" bindtap="onNudge">−0.1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.5" bindtap="onNudge">−0.5</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="-0.05" bindtap="onNudge">−0.05</button>
             <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" bindtap="onResetParam">默认</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.1" bindtap="onNudge">+0.1</button>
-            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="1" bindtap="onNudge">+1</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.05" bindtap="onNudge">+0.05</button>
+            <button class="qbtn" hover-class="none" disabled="{{!connected}}" data-param="kd" data-delta="0.5" bindtap="onNudge">+0.5</button>
           </view>
         </view>
       </view>

@@ -13,19 +13,19 @@ int rightMotorDeadZone = 164; // 右电机死区
 
 int leftPwm = 0, rightPwm = 0; // 左右电机实际需要输出的pwm
 // 允许小车倾斜的最大角度（固件固定，不再由小程序下发）
-static constexpr float MAX_LEAN = 45.0f;
+static constexpr float MAX_LEAN = 60.0f;
 // 电池 ADC：分压比（BAT+ → R1 → ADC → R2 → GND，ratio=(R1+R2)/R2）
 // R1 = 100K,R2 = 27K
 static constexpr float BAT_DIVIDER_RATIO = 4.7037f;
 
 // 内环： PWM为目标输出
-float kp = 100, ki = 0, kd = 3.5f; // 10 位 PWM，约为原 8 位默认值的 4 倍
+float kp = 80, ki = 0, kd = 1.2f;
 float pwmOut;
 // 机械零点：车真正站稳时传感器倾角（°），控制用 raw - angleOffset
 float angleOffset = 0.0f;
 
 // 外环：速度 → 目标倾角
-float kv = 0.7f; // 先从很小试起
+float kv = 0.68f;
 float targetSpeedCmd = 0.0f; // BLE 下发的目标速度（可突变）
 float targetSpeed = 0.0f; // 实际参与控制的目标速度（斜坡跟随后）
 // 建议固定周期算速度，比如每 10ms

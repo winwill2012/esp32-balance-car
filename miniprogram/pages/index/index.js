@@ -10,9 +10,9 @@ const PARAM_LIMITS = {
 
 const PARAM_DEFAULTS = {
   a0: 0,
-  kp: 100,
-  kd: 3.5,
-  kv: 0.7
+  kp: 80,
+  kd: 1.2,
+  kv: 0.68
 }
 
 Page({
