@@ -1,31 +1,39 @@
-#ifndef ESP32_CAR_PINS_H
-#define ESP32_CAR_PINS_H
-// 此处定义平衡车的所有引脚
-#define  MPU6050_SCL 32
-#define  MPU6050_SDA 33
-#define  MPU6050_INT 25
+#ifndef ESP32_BALANCE_CAR_PINS_H
+#define ESP32_BALANCE_CAR_PINS_H
 
-#define  MOTOR_L_IN1 22
-#define  MOTOR_L_IN2 23
-#define  MOTOR_L_EN1 13
-#define  MOTOR_L_EN2 14
+#include <cstdint>
 
-#define  MOTOR_R_IN1 19
-#define  MOTOR_R_IN2 18
-#define  MOTOR_R_EN1 27
-#define  MOTOR_R_EN2 26
+// MPU6050 的 I2C 与中断引脚。当前程序使用轮询更新，预留中断脚未启用。
+constexpr uint8_t kMpuScl = 32;
+constexpr uint8_t kMpuSda = 33;
+constexpr uint8_t kMpuInterrupt = 25;
 
-#define CH_L_IN1 0
-#define CH_L_IN2 1
-#define CH_R_IN1 2
-#define CH_R_IN2 3
-#define CH_LED 4
-#define LEDC_BITS_WIDTH 10
-#define MAX_PWM (pow(2, LEDC_BITS_WIDTH) - 1)
-#define LEDC_FREQ_HZ 1000
-#define LEDC_LED_FREQ_HZ 5000
+// 左右电机 H 桥输入和 AB 相编码器引脚。
+constexpr uint8_t kLeftMotorIn1 = 22;
+constexpr uint8_t kLeftMotorIn2 = 23;
+constexpr uint8_t kLeftEncoderA = 13;
+constexpr uint8_t kLeftEncoderB = 14;
 
-#define BAT_DETECT 34
-#define LED 21
+constexpr uint8_t kRightMotorIn1 = 19;
+constexpr uint8_t kRightMotorIn2 = 18;
+constexpr uint8_t kRightEncoderA = 27;
+constexpr uint8_t kRightEncoderB = 26;
 
-#endif //ESP32_CAR_PINS_H
+// ESP32 LEDC 硬件 PWM 通道。每路 H 桥输入必须使用独立通道。
+constexpr uint8_t kLeftMotorIn1Channel = 0;
+constexpr uint8_t kLeftMotorIn2Channel = 1;
+constexpr uint8_t kRightMotorIn1Channel = 2;
+constexpr uint8_t kRightMotorIn2Channel = 3;
+constexpr uint8_t kStatusLedChannel = 4;
+
+// 10 位 PWM 的有效范围为 0~1023。
+constexpr uint8_t kPwmResolutionBits = 10;
+constexpr int kMaximumPwm = (1 << kPwmResolutionBits) - 1;
+constexpr uint32_t kMotorPwmFrequencyHz = 1000;
+constexpr uint32_t kStatusLedPwmFrequencyHz = 5000;
+
+// 电池分压采样和板载状态指示灯引脚。
+constexpr uint8_t kBatterySense = 34;
+constexpr uint8_t kStatusLed = 21;
+
+#endif

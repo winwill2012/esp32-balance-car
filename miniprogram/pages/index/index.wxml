@@ -188,7 +188,7 @@
               <view
                 class="loop-help"
                 catchtap="onTuneHelp"
-                data-tip="调参顺序：内环站稳后再调 Kv。\n技巧：从小到大缓慢增加；过大易前后冲倒。调好后点「持久化到芯片」。"
+                data-tip="Kv 把目标速度与编码器实测速度的误差转换为目标倾角。过小则速度响应弱，过大容易前后摆动。"
               >?</view>
             </view>
             <text class="loop-flow">速度误差 → 目标倾角</text>
