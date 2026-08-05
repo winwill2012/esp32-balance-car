@@ -7,13 +7,13 @@
     "navigationBarTitleText": "平衡车调参",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#6f8f9c",
-    "backgroundTextStyle": "light"
+    "backgroundColor": "#f5f7fa",
+    "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#6b7c74",
-    "selectedColor": "#047857",
-    "backgroundColor": "#eef8f2",
+    "color": "#4b5563",
+    "selectedColor": "#1296db",
+    "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {

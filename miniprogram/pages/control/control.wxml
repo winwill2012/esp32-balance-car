@@ -1,9 +1,4 @@
 <view class="page">
-  <view class="page-grid">
-    <view class="page-grid__sharp"></view>
-    <view class="page-grid__soft"></view>
-  </view>
-
   <view class="page-body">
     <ble-status />
 
@@ -71,8 +66,8 @@
         max="15"
         step="1"
         value="{{speedMax}}"
-        activeColor="#059669"
-        backgroundColor="#d5dde6"
+        activeColor="#0d3b82"
+        backgroundColor="#d7dee8"
         block-size="22"
         bindchanging="onSpeedMaxChanging"
         bindchange="onSpeedMaxChange"
@@ -107,8 +102,8 @@
         max="300"
         step="5"
         value="{{turnMax}}"
-        activeColor="#059669"
-        backgroundColor="#d5dde6"
+        activeColor="#0d3b82"
+        backgroundColor="#d7dee8"
         block-size="22"
         bindchanging="onTurnMaxChanging"
         bindchange="onTurnMaxChange"

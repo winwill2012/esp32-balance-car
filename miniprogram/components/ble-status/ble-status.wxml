@@ -14,7 +14,12 @@
       loading="{{scanning || connecting}}"
       disabled="{{scanning || connecting}}"
       bindtap="onScanConnect"
-    >{{scanning ? '扫描中…' : (connecting ? '连接中…' : '扫描并连接')}}</button>
+    >
+      <view wx:if="{{!scanning && !connecting}}" class="scan-glyph">
+        <view class="scan-glyph__line"></view>
+      </view>
+      <text>{{scanning ? '扫描中…' : (connecting ? '连接中…' : '扫描并连接')}}</text>
+    </button>
     <button
       wx:else
       class="btn ghost status-btn"

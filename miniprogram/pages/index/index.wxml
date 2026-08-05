@@ -1,9 +1,4 @@
 <view class="page">
-  <view class="page-grid">
-    <view class="page-grid__sharp"></view>
-    <view class="page-grid__soft"></view>
-  </view>
-
   <view class="page-body">
     <ble-status />
 
@@ -59,8 +54,8 @@
             max="5"
             step="0.1"
             value="{{a0}}"
-            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
-            backgroundColor="#d5dde6"
+            activeColor="{{connected ? '#0d3b82' : '#9ca3af'}}"
+            backgroundColor="#d7dee8"
             block-size="22"
             disabled="{{!connected}}"
             bindchanging="onA0Changing"
@@ -122,8 +117,8 @@
             max="300"
             step="1"
             value="{{kp}}"
-            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
-            backgroundColor="#d5dde6"
+            activeColor="{{connected ? '#0d3b82' : '#9ca3af'}}"
+            backgroundColor="#d7dee8"
             block-size="22"
             disabled="{{!connected}}"
             bindchanging="onKpChanging"
@@ -158,8 +153,8 @@
             max="20"
             step="0.01"
             value="{{kd}}"
-            activeColor="{{connected ? '#059669' : '#9ca3af'}}"
-            backgroundColor="#d5dde6"
+            activeColor="{{connected ? '#0d3b82' : '#9ca3af'}}"
+            backgroundColor="#d7dee8"
             block-size="22"
             disabled="{{!connected}}"
             bindchanging="onKdChanging"
@@ -176,10 +171,13 @@
       </view>
 
       <view class="cascade-hint">
-        <text class="cascade-arrow">↑ 外环输出作为内环目标</text>
+        <view class="cascade-arrow">
+          <text class="cascade-info">i</text>
+          <text>外环输出作为内环目标</text>
+        </view>
       </view>
 
-      <view class="card loop-card loop-outer">
+      <view class="card loop-card">
         <view class="loop-head">
           <view class="loop-badge">外环</view>
           <view class="loop-meta">
@@ -213,8 +211,8 @@
             max="2"
             step="0.01"
             value="{{kv}}"
-            activeColor="{{connected ? '#0f766e' : '#9ca3af'}}"
-            backgroundColor="#d5dde6"
+            activeColor="{{connected ? '#0d3b82' : '#9ca3af'}}"
+            backgroundColor="#d7dee8"
             block-size="22"
             disabled="{{!connected}}"
             bindchanging="onKvChanging"
