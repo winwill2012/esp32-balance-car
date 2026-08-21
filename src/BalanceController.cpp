@@ -13,10 +13,9 @@ constexpr float kMaximumLeanAngle = 60.0f;
 // 速度环最多只能要求内环倾斜 30 度，防止大速度误差产生危险目标角。
 constexpr float kMaximumTargetAngle = 30.0f;
 // 速度环计算周期，单位ms
-constexpr uint32_t kSpeedUpdatePeriodMs = 10;
+constexpr uint32_t kSpeedUpdatePeriodMs = 20;
 // BLE 与串口遥测不参与控制，降低到 10 Hz 以减少通知和打印对控制周期的干扰。
 constexpr uint32_t kTelemetryPeriodMs = 100;
-
 // 方向归一化后的约定：向同一平移方向转动时 LSP/RSP 必须同号。
 // 若手推小车前进时某一侧遥测符号相反，只把对应常量改为 -1。
 constexpr int kLeftEncoderSign = 1;
@@ -39,7 +38,11 @@ void BalanceController::begin() {
     statusLed_.begin();
 
     Wire.begin(kMpuSda, kMpuScl);
-    imu_.begin();
+    Wire.setClock(400000);
+    imuReady_ = imu_.begin();
+    if (!imuReady_) {
+        Serial.println("[IMU] MPU6050 not found; motors will remain stopped");
+    }
     loadGyroOffsets();
     loadDeadZones();
     ble_.begin(parameters_, motionCommand_);
@@ -77,8 +80,24 @@ void BalanceController::runControlLoop() {
     uint32_t lastTelemetryMs = 0;
     // 上一次向BLE汇报小车摔倒状态的时间
     uint32_t lastFallenTelemetryMs = 0;
+    uint32_t lastImuRetryMs = 0;
 
     while (true) {
+        if (!imuReady_) {
+            motors_.stop();
+            const uint32_t now = millis();
+            if (now - lastImuRetryMs >= 1000) {
+                lastImuRetryMs = now;
+                imuReady_ = imu_.begin();
+                Serial.printf(
+                    "[IMU] initialization %s\n",
+                    imuReady_ ? "succeeded" : "failed"
+                );
+            }
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+
         // BLE 回调只设置请求标志。耗时校准必须在控制任务中串行执行，
         // 这样校准期间不会有另一个控制流程同时向电机写 PWM。
         if (ble_.consumeGyroCalibrationRequest()) {
@@ -93,8 +112,13 @@ void BalanceController::runControlLoop() {
             continue;
         }
 
-        imu_.update();
-        const float rawAngle = imu_.getAngleX();  // 获取俯仰角Pitch
+        if (!imu_.update()) {
+            // I2C 读取异常时禁止使用旧姿态继续驱动；下一循环会重新初始化传感器。
+            imuReady_ = false;
+            motors_.stop();
+            continue;
+        }
+        const float rawAngle = imu_.angleX();  // 获取俯仰角 Pitch
         // angleOffset 表示机械结构真正直立时 IMU 的读数，而不是陀螺仪零偏。
         const float angle = rawAngle - parameters_.angleOffset;
 
@@ -121,7 +145,7 @@ void BalanceController::runControlLoop() {
         }
 
         uint32_t now = millis();
-        // 编码器速度噪声较大，外环固定约 10 ms 更新一次；直立环则尽可能快地运行。
+        // 编码器速度噪声较大，外环固定约 20 ms 更新一次；直立环则尽可能快地运行。
         if (now - lastSpeedUpdateMs_ >= kSpeedUpdatePeriodMs) {
             updateOuterLoops(now);
         }
@@ -132,7 +156,7 @@ void BalanceController::runControlLoop() {
         const float angleError = targetAngle_ - angle;
         const int balancePwm = static_cast<int>(
             parameters_.angleKp * angleError -
-            parameters_.angleKd * imu_.getGyroX()
+            parameters_.angleKd * imu_.gyroX()
         );
         motors_.drive(
             balancePwm,
@@ -164,7 +188,7 @@ void BalanceController::runControlLoop() {
             );
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -244,9 +268,9 @@ void BalanceController::loadGyroOffsets() {
 void BalanceController::saveGyroOffsets() {
     Preferences preferences;
     preferences.begin("gyro", false);
-    preferences.putFloat("ox", imu_.getGyroXoffset());
-    preferences.putFloat("oy", imu_.getGyroYoffset());
-    preferences.putFloat("oz", imu_.getGyroZoffset());
+    preferences.putFloat("ox", imu_.gyroXOffset());
+    preferences.putFloat("oy", imu_.gyroYOffset());
+    preferences.putFloat("oz", imu_.gyroZOffset());
     preferences.end();
 }
 
@@ -257,13 +281,18 @@ void BalanceController::runGyroCalibration() {
     targetAngle_ = 0.0f;
     motors_.stop();
 
-    imu_.calcGyroOffsets(false, 0, 0);
+    if (!imu_.calibrateGyro()) {
+        imuReady_ = false;
+        Serial.println("[GYRO] calibration failed because of an I2C error");
+        resetMotionState();
+        return;
+    }
     saveGyroOffsets();
     resetMotionState();
     ble_.notifyCalibrationDone(
-        imu_.getGyroXoffset(),
-        imu_.getGyroYoffset(),
-        imu_.getGyroZoffset()
+        imu_.gyroXOffset(),
+        imu_.gyroYOffset(),
+        imu_.gyroZOffset()
     );
 }
 

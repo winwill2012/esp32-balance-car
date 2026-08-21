@@ -2,6 +2,13 @@
 
 #include "Pins.h"
 
+namespace {
+// 忽略零点附近极小的整数控制量，避免角度和陀螺仪量化噪声让 H 桥频繁换向。
+constexpr int kBalanceCommandDeadband = 8;
+// 控制量在此范围内逐渐加入死区补偿，保证零点附近连续而不是突然跳变。
+constexpr int kDeadZoneBlendCommand = 96;
+}  // namespace
+
 void MotorDriver::begin() {
     // 每个电机由两路 PWM 驱动 H 桥：一侧输出 PWM，另一侧保持 0 来选择方向。
     pinMode(kLeftMotorIn1, OUTPUT);
@@ -49,17 +56,23 @@ void MotorDriver::drive(
     leftPwm_ = constrain(balancePwm + static_cast<int>(turnPwm), -maxPwm, maxPwm);
     rightPwm_ = constrain(balancePwm - static_cast<int>(turnPwm), -maxPwm, maxPwm);
 
+    const int leftOutput = applySmoothDeadZone(
+        leftPwm_,
+        leftDeadZone
+    );
+    const int rightOutput = applySmoothDeadZone(
+        rightPwm_,
+        rightDeadZone
+    );
     writeChannel(
         kLeftMotorIn1Channel,
         kLeftMotorIn2Channel,
-        leftPwm_,
-        leftDeadZone
+        leftOutput
     );
     writeChannel(
         kRightMotorIn1Channel,
         kRightMotorIn2Channel,
-        rightPwm_,
-        rightDeadZone
+        rightOutput
     );
 }
 
@@ -72,14 +85,12 @@ void MotorDriver::driveRaw(const int leftPwm, const int rightPwm) {
     writeChannel(
         kLeftMotorIn1Channel,
         kLeftMotorIn2Channel,
-        leftPwm_,
-        0
+        leftPwm_
     );
     writeChannel(
         kRightMotorIn1Channel,
         kRightMotorIn2Channel,
-        rightPwm_,
-        0
+        rightPwm_
     );
 }
 
@@ -93,27 +104,47 @@ void MotorDriver::stop() {
     ledcWrite(kRightMotorIn2Channel, 0);
 }
 
+int MotorDriver::applySmoothDeadZone(
+    const int pwm,
+    const int calibratedDeadZone
+) {
+    if (calibratedDeadZone <= 0) {
+        return constrain(pwm, -kMaximumPwm, kMaximumPwm);
+    }
+
+    const int magnitude = abs(pwm);
+    if (magnitude <= kBalanceCommandDeadband) {
+        return 0;
+    }
+
+    const int deadZone = constrain(
+        calibratedDeadZone,
+        0,
+        kMaximumPwm
+    );
+    const int blendMagnitude = min(magnitude, kDeadZoneBlendCommand);
+    const int compensation =
+        (deadZone * blendMagnitude + kDeadZoneBlendCommand / 2) /
+        kDeadZoneBlendCommand;
+    const int outputMagnitude = constrain(
+        magnitude + compensation,
+        0,
+        kMaximumPwm
+    );
+    return pwm > 0 ? outputMagnitude : -outputMagnitude;
+}
+
 void MotorDriver::writeChannel(
     const int channelIn1,
     const int channelIn2,
-    const int pwm,
-    const int deadZone
+    const int pwm
 ) {
     if (pwm > 0) {
-        // 只有非零控制量才叠加死区；pwm == 0 时必须保持真正的零输出，避免静止漂移。
-        const int output = constrain(
-            pwm + deadZone,
-            0,
-            kMaximumPwm
-        );
+        const int output = pwm;
         ledcWrite(channelIn1, 0);
         ledcWrite(channelIn2, output);
     } else if (pwm < 0) {
-        const int output = constrain(
-            -pwm + deadZone,
-            0,
-            kMaximumPwm
-        );
+        const int output = -pwm;
         ledcWrite(channelIn1, output);
         ledcWrite(channelIn2, 0);
     } else {

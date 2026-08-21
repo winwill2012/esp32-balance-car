@@ -2,8 +2,8 @@ const session = require('../../utils/bleSession.js')
 
 const SPEED_MAX_KEY = 'control.speedMax'
 // 速度单位是编码器脉冲，与 LEDC 位宽无关
-const SPEED_MAX_DEFAULT = 10
-const SPEED_MAX_LIMIT = { min: 0, max: 15 }
+const SPEED_MAX_DEFAULT = 12
+const SPEED_MAX_LIMIT = { min: 0, max: 20 }
 
 const TURN_MAX_KEY = 'control.turnMax'
 // 转向差速直接叠加到 PWM，10 位约为原 8 位的 4 倍

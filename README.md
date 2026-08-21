@@ -6,6 +6,8 @@
 ## 固件模块
 
 - `BalanceController`：组织速度/直立环、校准流程和 FreeRTOS 任务。
+- `Mpu6050`：使用 ESP32 Arduino Core 的 `Wire` 接口直接读写 MPU6050，
+  并完成零偏校准与姿态角互补滤波。
 - `BleConfigService`：处理 BLE GATT、控制指令和 PID 参数持久化。
 - `EncoderPair`：封装左右编码器和中断计数。
 - `MotorDriver`：封装 PWM 输出、左右轮混控和电机死区补偿。

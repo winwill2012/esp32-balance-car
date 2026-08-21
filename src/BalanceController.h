@@ -1,13 +1,12 @@
 #ifndef ESP32_BALANCE_CAR_BALANCE_CONTROLLER_H
 #define ESP32_BALANCE_CAR_BALANCE_CONTROLLER_H
 
-#include <MPU6050_tockn.h>
-
 #include "BatteryMonitor.h"
 #include "BleConfigService.h"
 #include "ControlTypes.h"
 #include "EncoderPair.h"
 #include "MotorDriver.h"
+#include "Mpu6050.h"
 #include "StatusLed.h"
 
 /**
@@ -42,7 +41,8 @@ private:
     ControlParameters parameters_;
     MotionCommand motionCommand_;
 
-    MPU6050 imu_;
+    Mpu6050 imu_;
+    bool imuReady_ = false;
     EncoderPair encoders_;
     MotorDriver motors_;
     BatteryMonitor battery_;
