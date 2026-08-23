@@ -4,7 +4,7 @@
 
 namespace {
 // 忽略零点附近极小的整数控制量，避免角度和陀螺仪量化噪声让 H 桥频繁换向。
-constexpr int kBalanceCommandDeadband = 8;
+constexpr int kBalanceCommandDeadband = 30;
 // 控制量在此范围内逐渐加入死区补偿，保证零点附近连续而不是突然跳变。
 constexpr int kDeadZoneBlendCommand = 96;
 }  // namespace
