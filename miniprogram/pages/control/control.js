@@ -2,11 +2,11 @@ const session = require('../../utils/bleSession.js')
 
 const SPEED_MAX_KEY = 'control.speedMax'
 // 速度单位是编码器脉冲，与 LEDC 位宽无关
-const SPEED_MAX_DEFAULT = 12
-const SPEED_MAX_LIMIT = { min: 0, max: 20 }
+const SPEED_MAX_DEFAULT = 20
+const SPEED_MAX_LIMIT = { min: 0, max: 25 }
 
 const TURN_MAX_KEY = 'control.turnMax'
-// 转向差速直接叠加到 PWM，10 位约为原 8 位的 4 倍
+// 转向设置和 TRN 指令均直接使用目标偏航角速度，单位为 °/s。
 const TURN_MAX_DEFAULT = 200
 const TURN_MAX_LIMIT = { min: 0, max: 300 }
 
@@ -27,6 +27,8 @@ Page({
   _speedNorm: 0,
   _turnNorm: 0,
   _sendTimer: null,
+  _heartbeatTimer: null,
+  _flushInFlight: false,
   _lastSentSpeed: null,
   _lastSentTurn: null,
 
@@ -38,6 +40,7 @@ Page({
   },
 
   onShow() {
+    this.startMotionHeartbeat()
     if (this._unsub) return
     this._unsub = session.subscribe((s) => {
       const wasConnected = this.data.connected
@@ -55,10 +58,12 @@ Page({
   },
 
   onHide() {
+    this.stopMotionHeartbeat()
     this.resetMotion(true)
   },
 
   onUnload() {
+    this.stopMotionHeartbeat()
     this.resetMotion(true)
     if (this._unsub) {
       this._unsub()
@@ -178,7 +183,7 @@ Page({
 
   onTurnStick(e) {
     if (!this.data.connected) return
-    // 右推为正 turnPwm（右转）
+    // 右推为正目标偏航角速度（右转）
     const x = Number(e.detail.x) || 0
     this.applyTurnNorm(x)
   },
@@ -207,33 +212,50 @@ Page({
     }, 50)
   },
 
-  async flushSend() {
-    if (!this.data.connected) return
+  startMotionHeartbeat() {
+    if (this._heartbeatTimer) return
+    this._heartbeatTimer = setInterval(() => {
+      if (this.data.connected) {
+        this.flushSend(true)
+      }
+    }, 150)
+  },
+
+  stopMotionHeartbeat() {
+    if (!this._heartbeatTimer) return
+    clearInterval(this._heartbeatTimer)
+    this._heartbeatTimer = null
+  },
+
+  async flushSend(force) {
+    if (!this.data.connected || this._flushInFlight) return
 
     const speed = this._speedCmd
     const turn = this._turnCmd
-    const tasks = []
+    const commands = []
 
-    if (this._lastSentSpeed === null || Math.abs(this._lastSentSpeed - speed) >= 0.01) {
+    if (force || this._lastSentSpeed === null || Math.abs(this._lastSentSpeed - speed) >= 0.01) {
       this._lastSentSpeed = speed
-      tasks.push(
-        session.sendCmd(`SPD=${speed.toFixed(3)}`).catch((err) => {
-          console.error('SPD send failed', err)
-        })
-      )
+      commands.push(`SPD=${speed.toFixed(3)}`)
     }
 
-    if (this._lastSentTurn === null || Math.abs(this._lastSentTurn - turn) >= 0.01) {
+    if (force || this._lastSentTurn === null || Math.abs(this._lastSentTurn - turn) >= 0.01) {
       this._lastSentTurn = turn
-      tasks.push(
-        session.sendCmd(`TRN=${turn.toFixed(3)}`).catch((err) => {
-          console.error('TRN send failed', err)
-        })
-      )
+      commands.push(`TRN=${turn.toFixed(3)}`)
     }
 
-    if (tasks.length) {
-      await Promise.all(tasks)
+    if (!commands.length) return
+
+    this._flushInFlight = true
+    try {
+      // 微信 BLE 在部分手机上不允许并发写特征值，心跳命令必须依次发送。
+      for (const command of commands) {
+        await session.sendCmd(command)
+      }
+    } catch (err) {
+      console.error('motion command send failed', err)
+    } finally {
+      this._flushInFlight = false
     }
   },
 

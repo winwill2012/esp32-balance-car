@@ -112,6 +112,12 @@
   border-radius: 8rpx;
 }
 
+.setting-unit {
+  flex-shrink: 0;
+  color: #64748b;
+  font-size: 22rpx;
+}
+
 .setting-quick {
   display: flex;
   gap: 10rpx;

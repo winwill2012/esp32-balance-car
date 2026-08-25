@@ -24,10 +24,6 @@
   margin-bottom: 0;
 }
 
-.actions--three {
-  gap: 10rpx;
-}
-
 .btn {
   flex: 1;
   margin: 0;
@@ -124,43 +120,39 @@
 }
 
 .meter-card {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.meter-row {
   display: flex;
   align-items: stretch;
   padding: 24rpx 12rpx;
 }
 
-.meter-item,
-.dz-item {
+.meter-item {
   flex: 1;
   text-align: center;
 }
 
-.meter-divider,
-.dz-divider {
+.meter-divider {
   width: 2rpx;
   background: #e2e8f0;
 }
 
-.meter-label,
-.dz-label {
+.meter-label {
   display: block;
   color: #111827;
   font-size: 22rpx;
-}
-
-.meter-label {
   margin-bottom: 8rpx;
 }
 
-.meter-value,
-.dz-value {
+.meter-value {
   display: block;
   color: #111827;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.meter-value {
   font-size: 34rpx;
   line-height: 1.2;
 }
@@ -330,24 +322,6 @@
   background: #e8edf2;
 }
 
-.dz-board {
-  display: flex;
-  align-items: stretch;
-  margin: 0 24rpx 20rpx;
-  padding: 18rpx 8rpx;
-  background: #ffffff;
-  border: 2rpx solid #e2e8f0;
-  border-radius: 8rpx;
-}
-
-.dz-label {
-  margin-bottom: 6rpx;
-}
-
-.dz-value {
-  font-size: 30rpx;
-}
-
 .cascade-hint {
   display: flex;
   justify-content: center;
@@ -377,4 +351,29 @@
   text-align: center;
   background: #0d3b82;
   border-radius: 50%;
+}
+
+.outer-tabs {
+  display: flex;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+  padding: 6rpx;
+  background: #e9eef5;
+  border-radius: 12rpx;
+}
+
+.outer-tab {
+  flex: 1;
+  padding: 14rpx 0;
+  color: #64748b;
+  font-size: 24rpx;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 9rpx;
+}
+
+.outer-tab.is-active {
+  color: #0d3b82;
+  background: #ffffff;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.08);
 }

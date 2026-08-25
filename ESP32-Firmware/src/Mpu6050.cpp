@@ -1,8 +1,6 @@
 #include "Mpu6050.h"
-
 #include <cmath>
 
-namespace {
 constexpr uint8_t kSampleRateDividerRegister = 0x19;
 constexpr uint8_t kConfigRegister = 0x1A;
 constexpr uint8_t kGyroConfigRegister = 0x1B;
@@ -17,8 +15,8 @@ constexpr uint8_t kDigitalLowPassFilterConfig = 0x03;
 constexpr uint8_t kSampleRateDivider = 0x04;
 constexpr uint32_t kSamplePeriodMs = 5;
 
-constexpr float kAccelScale = 16384.0f;  // AFS_SEL=0: 16384 LSB/g
-constexpr float kGyroScale = 65.5f;      // FS_SEL=1: 65.5 LSB/(deg/s)
+constexpr float kAccelScale = 16384.0f; // AFS_SEL=0: 16384 LSB/g
+constexpr float kGyroScale = 65.5f; // FS_SEL=1: 65.5 LSB/(deg/s)
 constexpr float kAccelFilterWeight = 0.02f;
 constexpr float kGyroFilterWeight = 1.0f - kAccelFilterWeight;
 
@@ -27,7 +25,6 @@ int16_t decodeInt16(const uint8_t *bytes) {
         (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1]
     );
 }
-}  // namespace
 
 Mpu6050::Mpu6050(TwoWire &wire, const uint8_t address)
     : wire_(wire), address_(address) {
@@ -65,12 +62,12 @@ bool Mpu6050::update() {
     int16_t rawGyroY = 0;
     int16_t rawGyroZ = 0;
     if (!readRawSample(
-            rawAccX,
-            rawAccY,
-            rawAccZ,
-            rawGyroX,
-            rawGyroY,
-            rawGyroZ)) {
+        rawAccX,
+        rawAccY,
+        rawAccZ,
+        rawGyroX,
+        rawGyroY,
+        rawGyroZ)) {
         return false;
     }
 
@@ -81,6 +78,7 @@ bool Mpu6050::update() {
                               180.0f / PI;
 
     gyroX_ = rawGyroX / kGyroScale - gyroXOffset_;
+    gyroZ_ = rawGyroZ / kGyroScale - gyroZOffset_;
     const uint32_t nowUs = micros();
     const float dt = (nowUs - previousUpdateUs_) * 0.000001f;
     previousUpdateUs_ = nowUs;
@@ -139,18 +137,14 @@ void Mpu6050::setGyroOffsets(
     gyroZOffset_ = z;
 }
 
-bool Mpu6050::writeRegister(const uint8_t reg, const uint8_t value) {
+bool Mpu6050::writeRegister(const uint8_t reg, const uint8_t value) const {
     wire_.beginTransmission(address_);
     wire_.write(reg);
     wire_.write(value);
     return wire_.endTransmission(true) == 0;
 }
 
-bool Mpu6050::readRegisters(
-    const uint8_t firstReg,
-    uint8_t *data,
-    const size_t length
-) {
+bool Mpu6050::readRegisters(const uint8_t firstReg, uint8_t *data, const size_t length) const {
     wire_.beginTransmission(address_);
     wire_.write(firstReg);
     if (wire_.endTransmission(false) != 0) {
@@ -181,7 +175,7 @@ bool Mpu6050::readRawSample(
     int16_t &gyroX,
     int16_t &gyroY,
     int16_t &gyroZ
-) {
+) const {
     uint8_t data[14] = {};
     if (!readRegisters(kAccelDataRegister, data, sizeof(data))) {
         return false;

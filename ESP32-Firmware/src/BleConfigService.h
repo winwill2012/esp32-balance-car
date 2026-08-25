@@ -26,16 +26,13 @@ public:
         int pwm,
         float leftSpeed,
         float rightSpeed
-    );
+    ) const;
     void notifyCalibrationDone(
         float gyroXOffset,
         float gyroYOffset,
         float gyroZOffset
     );
-    void notifyDeadZoneDone(int leftDeadZone, int rightDeadZone);
-
     bool consumeGyroCalibrationRequest();
-    bool consumeDeadZoneRequest();
     void saveParameters();
 
 private:
@@ -60,6 +57,17 @@ private:
 
     void clearMotionCommand();
     void applyBalanceParameters(float angleKp, float angleKd, float speedKp);
+    void applyPidParameters(
+        float angleKp,
+        float angleKi,
+        float angleKd,
+        float speedKp,
+        float speedKi,
+        float speedKd,
+        float turnKp,
+        float turnKi,
+        float turnKd
+    );
     void applyAngleOffset(float angleOffset);
     void persistParameters();
     void restorePersistedParameters();
@@ -77,7 +85,6 @@ private:
     bool connected_ = false;
     // BLE 回调与控制任务之间只传递一次性请求；耗时操作不在 BLE 回调中执行。
     volatile bool gyroCalibrationRequested_ = false;
-    volatile bool deadZoneRequested_ = false;
 
     ServerCallbacks serverCallbacks_;
     CommandCallbacks commandCallbacks_;

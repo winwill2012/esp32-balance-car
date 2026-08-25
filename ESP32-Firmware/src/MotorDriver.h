@@ -6,20 +6,14 @@
 class MotorDriver {
 public:
     void begin();
-    void drive(
-        int balancePwm,
-        float turnPwm,
-        int leftDeadZone,
-        int rightDeadZone
-    );
-    void driveRaw(int leftPwm, int rightPwm);
+    void drive(int balancePwm, float turnPwm);
     void stop();
 
     int leftPwm() const { return leftPwm_; }
     int rightPwm() const { return rightPwm_; }
 
 private:
-    static int applySmoothDeadZone(int pwm, int deadZone);
+    static int applySmoothFrictionCompensation(int pwm);
     static void writeChannel(int channelIn1, int channelIn2, int pwm);
 
     int leftPwm_ = 0;

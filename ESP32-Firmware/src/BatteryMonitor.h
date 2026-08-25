@@ -3,8 +3,9 @@
 
 class BatteryMonitor {
 public:
-    void begin() const;
-    float readPercent() const;
+    static void begin();
+
+    static float readPercent();
 };
 
 #endif

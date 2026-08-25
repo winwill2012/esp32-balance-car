@@ -5,18 +5,16 @@
  * Command (Write): 0000FFF1-...
  * Status  (Notify/Read): 0000FFF2-...
  *
- * 指令: KP= / KD= / KV= / A0= / SET=kp,kd,kv[,a0] / SPD=xx / TRN=xx / SLW=xx / GCAL / DZCAL / GET / SAVE
+ * PID 参数: PID=AKP,AKI,AKD,SKP,SKI,SKD,TKP,TKI,TKD[,A0]
+ * 兼容旧指令: KP= / KI= / KD= / KV= / SET=kp,kd,kv[,a0]
  * 遥测: ANG=xx,BAT=xx,PWM=xx,LSP=xx,RSP=xx
- * 应答: OK KP=xx,KD=xx,KV=xx,A0=xx,LDZ=xx,RDZ=xx
+ * 应答分两帧返回角度/速度 PID 与转向 PID 参数
  * 校准: CAL=0 开始，CAL=1,GX=,GY=,GZ= 完成
- * 死区: DZ=0 开始，DZ=1,LDZ=,RDZ= 完成（3 次检测取平均后写入 NVS）
  * A0: 机械零点（平衡倾角偏置，单位 °，范围 ±5）
- * LDZ/RDZ: 左右电机死区 PWM
  * SPD: 目标速度 targetSpeed，前进为正、后退为负
- * TRN: 转向差速 turnPwm，右转为正、左转为负
+ * TRN: 目标偏航角速度（°/s），右转为正、左转为负
  * SLW: 急刹强度（目标速度斜坡），值越大越剧烈
  * GCAL: 陀螺仪零偏校准（保持静止）
- * DZCAL: 电机死区检测（轮子悬空，连续 3 次取平均）
  */
 
 const DEVICE_NAME = 'ESP32-Car'

@@ -7,8 +7,7 @@
 
 #include "Pins.h"
 
-// 安全和限幅参数：角度单位为度，速度单位为“脉冲/速度采样周期”。
-// 倾倒判断使用 IMU 原始角度，避免错误的机械零点设置屏蔽倾倒保护。
+// 能够容忍的小车最大倾斜角度，超过这个角度，认为小车不可恢复，直接关闭电机
 constexpr float kMaximumLeanAngle = 60.0f;
 // 速度环最多只能要求内环倾斜 30 度，防止大速度误差产生危险目标角。
 constexpr float kMaximumTargetAngle = 30.0f;
@@ -16,6 +15,20 @@ constexpr float kMaximumTargetAngle = 30.0f;
 constexpr uint32_t kSpeedUpdatePeriodMs = 20;
 // BLE 与串口遥测不参与控制，降低到 10 Hz 以减少通知和打印对控制周期的干扰。
 constexpr uint32_t kTelemetryPeriodMs = 100;
+// 小程序以 150 ms 心跳发送遥控命令；超过此时间没有收到 TRN 时自动回中。
+constexpr uint32_t kTurnCommandTimeoutMs = 450;
+// 小程序直接下发目标偏航角速度，单位为 °/s，固件不再进行比例换算。
+constexpr float kMaximumTargetYawRate = 300.0f;
+// PID 修正量和“前馈 + 修正”总输出分别限幅；总输出略高于原始 300 PWM，
+// 用于加速起转，同时避免瞬间叠加到电机的 10 位满量程。
+constexpr float kMaximumTurnOutput = 300.0f;
+constexpr float kMaximumMixedTurnOutput = 450.0f;
+// 三个积分限幅的单位分别为“度·秒”“速度单位·秒”和“度”。
+constexpr float kAngleIntegralLimit = 10.0f;
+constexpr float kSpeedIntegralLimit = 20.0f;
+constexpr float kTurnIntegralLimit = 90.0f;
+// 当前安装方向下 MPU6050 的 gyroZ 为负表示向右转，将其归一化为“右转为正”。
+constexpr float kYawRateSign = -1.0f;
 // 方向归一化后的约定：向同一平移方向转动时 LSP/RSP 必须同号。
 // 若手推小车前进时某一侧遥测符号相反，只把对应常量改为 -1。
 constexpr int kLeftEncoderSign = 1;
@@ -27,44 +40,32 @@ constexpr float kDefaultGyroYOffset = 0.55f;
 constexpr float kDefaultGyroZOffset = -1.42f;
 
 BalanceController::BalanceController()
-    : imu_(Wire) {
+    : anglePid_(90.0f, 0.0f, 4.0f, kAngleIntegralLimit, kMaximumPwm),
+      speedPid_(-0.77f, 0.0f, 0.0f, kSpeedIntegralLimit, kMaximumTargetAngle),
+      turnPid_(2.3f, 0.2f, 0.0f, kTurnIntegralLimit, kMaximumTurnOutput),
+      mpu6050_(Wire) {
 }
 
 void BalanceController::begin() {
     // 先初始化执行器并确保 PWM 为 0，再启动传感器和控制任务，防止上电误动作。
     motors_.begin();
     encoders_.begin();
-    battery_.begin();
-    statusLed_.begin();
+    BatteryMonitor::begin();
+    StatusLed::begin();
 
-    Wire.begin(kMpuSda, kMpuScl);
-    Wire.setClock(400000);
-    imuReady_ = imu_.begin();
-    if (!imuReady_) {
+    Wire.begin(kMpuSda, kMpuScl, 400000);
+    mpu6050Ready_ = mpu6050_.begin();
+    if (!mpu6050Ready_) {
         Serial.println("[IMU] MPU6050 not found; motors will remain stopped");
     }
     loadGyroOffsets();
-    loadDeadZones();
     ble_.begin(parameters_, motionCommand_);
 
-    lastSpeedUpdateMs_ = millis();
+    lastOuterLoopUpdateMs_ = millis();
+    lastControlUpdateUs_ = micros();
     // LED 和控制使用独立 FreeRTOS 任务；任务入口接收 this，避免使用全局控制状态。
-    xTaskCreate(
-        statusLedTaskEntry,
-        "StatusLed",
-        2048,
-        this,
-        1,
-        nullptr
-    );
-    xTaskCreate(
-        controlTaskEntry,
-        "BalanceControl",
-        4096,
-        this,
-        1,
-        nullptr
-    );
+    xTaskCreate(statusLedTaskEntry, "StatusLed", 2048, this, 1, nullptr);
+    xTaskCreate(controlTaskEntry, "BalanceControl", 4096, this, 1, nullptr);
 }
 
 void BalanceController::controlTaskEntry(void *context) {
@@ -83,16 +84,13 @@ void BalanceController::runControlLoop() {
     uint32_t lastImuRetryMs = 0;
 
     while (true) {
-        if (!imuReady_) {
+        if (!mpu6050Ready_) {
             motors_.stop();
             const uint32_t now = millis();
             if (now - lastImuRetryMs >= 1000) {
                 lastImuRetryMs = now;
-                imuReady_ = imu_.begin();
-                Serial.printf(
-                    "[IMU] initialization %s\n",
-                    imuReady_ ? "succeeded" : "failed"
-                );
+                mpu6050Ready_ = mpu6050_.begin();
+                Serial.printf("MPU6050初始化%s\n", mpu6050Ready_ ? "成功" : "失败");
             }
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
@@ -105,22 +103,22 @@ void BalanceController::runControlLoop() {
             vTaskDelay(pdMS_TO_TICKS(1));
             continue;
         }
-        // 电机死区检测
-        if (ble_.consumeDeadZoneRequest()) {
-            runDeadZoneDetection();
-            vTaskDelay(pdMS_TO_TICKS(1));
-            continue;
-        }
-
-        if (!imu_.update()) {
+        if (!mpu6050_.update()) {
             // I2C 读取异常时禁止使用旧姿态继续驱动；下一循环会重新初始化传感器。
-            imuReady_ = false;
+            mpu6050Ready_ = false;
             motors_.stop();
             continue;
         }
-        const float rawAngle = imu_.angleX();  // 获取俯仰角 Pitch
+        const float rawAngle = mpu6050_.angleX(); // 获取俯仰角 Pitch
         // angleOffset 表示机械结构真正直立时 IMU 的读数，而不是陀螺仪零偏。
         const float angle = rawAngle - parameters_.angleOffset;
+        const uint32_t controlNowUs = micros();
+        const float controlDt = constrain(
+            (controlNowUs - lastControlUpdateUs_) * 0.000001f,
+            0.001f,
+            0.05f
+        );
+        lastControlUpdateUs_ = controlNowUs;
 
         // 倾倒后立即关闭电机，并清除速度/位置历史，避免扶起瞬间使用旧误差猛冲。
         if (fabsf(rawAngle) > kMaximumLeanAngle) {
@@ -132,13 +130,7 @@ void BalanceController::runControlLoop() {
             const uint32_t now = millis();
             if (now - lastFallenTelemetryMs >= kTelemetryPeriodMs) {
                 lastFallenTelemetryMs = now;
-                ble_.notifyStatus(
-                    rawAngle,
-                    battery_.readPercent(),
-                    0,
-                    0.0f,
-                    0.0f
-                );
+                ble_.notifyStatus(rawAngle, BatteryMonitor::readPercent(), 0, 0.0f, 0.0f);
             }
             vTaskDelay(pdMS_TO_TICKS(1));
             continue;
@@ -146,45 +138,78 @@ void BalanceController::runControlLoop() {
 
         uint32_t now = millis();
         // 编码器速度噪声较大，外环固定约 20 ms 更新一次；直立环则尽可能快地运行。
-        if (now - lastSpeedUpdateMs_ >= kSpeedUpdatePeriodMs) {
+        if (now - lastOuterLoopUpdateMs_ >= kSpeedUpdatePeriodMs) {
             updateOuterLoops(now);
         }
 
         // 最内层直立 PD：
         //   P 项纠正目标角与实际角的偏差；
         //   D 项直接使用陀螺仪角速度抑制快速摆动，避免再对角度做差分放大噪声。
-        const float angleError = targetAngle_ - angle;
-        const int balancePwm = static_cast<int>(
-            parameters_.angleKp * angleError -
-            parameters_.angleKd * imu_.gyroX()
+        anglePid_.setKp(parameters_.angleKp);
+        anglePid_.setKi(parameters_.angleKi);
+        anglePid_.setKd(parameters_.angleKd);
+        anglePid_.setTarget(targetAngle_);
+        anglePid_.setActual(angle);
+        // 误差 = 目标角 - 实际角，因此误差变化率约为 -gyroX。
+        // 这保持原控制律 Kp * angleError - Kd * gyroX 不变。
+        anglePid_.updateWithDerivative(-mpu6050_.gyroX(), controlDt);
+        const int balancePwm = static_cast<int>(anglePid_.output());
+
+        // 转向采用“直接差动 PWM 前馈 + 偏航角速度 PID 修正”：
+        // 前馈保留原来快速原地转向的力度，PID 只补偿实际转速与目标转速的误差。
+        // 没有新鲜蓝牙命令时前馈和目标均为 0，转向环继续抑制原地自转。
+        const bool turnCommandFresh =
+                motionCommand_.lastTurnCommandMs != 0 &&
+                now - motionCommand_.lastTurnCommandMs <= kTurnCommandTimeoutMs;
+        targetYawRate_ = turnCommandFresh
+                             ? constrain(
+                                 motionCommand_.targetYawRate,
+                                 -kMaximumTargetYawRate,
+                                 kMaximumTargetYawRate
+                             )
+                             : 0.0f;
+        // 保留数值为 1:1 的转向前馈以维持快速起转；PID 的目标值本身不做转换。
+        const float turnFeedForward = targetYawRate_;
+        const float yawRate = kYawRateSign * mpu6050_.gyroZ();
+        turnPid_.setTarget(targetYawRate_);
+        turnPid_.setActual(yawRate);
+        turnPid_.setKp(parameters_.turnKp);
+        turnPid_.setKi(parameters_.turnKi);
+        turnPid_.setKd(parameters_.turnKd);
+        turnPid_.update(controlDt);
+        const float turnCorrection = turnPid_.output();
+        turnOutput_ = constrain(
+            turnFeedForward + turnCorrection,
+            -kMaximumMixedTurnOutput,
+            kMaximumMixedTurnOutput
         );
-        motors_.drive(
-            balancePwm,
-            motionCommand_.turnPwm,
-            parameters_.leftMotorDeadZone,
-            parameters_.rightMotorDeadZone
-        );
+
+        motors_.drive(balancePwm, turnOutput_);
 
         now = millis();
         if (now - lastTelemetryMs >= kTelemetryPeriodMs) {
             lastTelemetryMs = now;
             ble_.notifyStatus(
                 rawAngle,
-                battery_.readPercent(),
+                BatteryMonitor::readPercent(),
                 balancePwm,
                 leftSpeed_,
                 rightSpeed_
             );
             Serial.printf(
                 "angle: %.2f(raw %.2f) target: %.2f speed: %.2f/%.2f "
-                "pwm: %d turn: %.1f\n",
+                "pwm: %d yaw: %.1f/%.1f turnFF/PID/out: %.1f/%.1f/%.1f\n",
                 angle,
                 rawAngle,
                 targetAngle_,
                 speed_,
                 speedReference_,
                 balancePwm,
-                motionCommand_.turnPwm
+                yawRate,
+                targetYawRate_,
+                turnFeedForward,
+                turnCorrection,
+                turnOutput_
             );
         }
 
@@ -195,8 +220,8 @@ void BalanceController::runControlLoop() {
 void BalanceController::updateOuterLoops(const uint32_t nowMs) {
     // dt 仅用于限制蓝牙下发的目标速度的变化率。编码器速度仍按每次采样的脉冲数表示，
     // 因此修改 kSpeedUpdatePeriodMs 后必须重新调整 speedKp。
-    const float dt = (nowMs - lastSpeedUpdateMs_) * 0.001f;
-    lastSpeedUpdateMs_ = nowMs;
+    const float dt = (nowMs - lastOuterLoopUpdateMs_) * 0.001f;
+    lastOuterLoopUpdateMs_ = nowMs;
 
     // 原子地取出并清零本周期脉冲，随后统一左右编码器的正方向。
     int32_t leftCount = 0;
@@ -204,7 +229,6 @@ void BalanceController::updateOuterLoops(const uint32_t nowMs) {
     encoders_.readAndReset(leftCount, rightCount);
     leftCount *= kLeftEncoderSign;
     rightCount *= kRightEncoderSign;
-
     // 一阶低通滤波抑制编码器量化抖动。0.7 保留历史，0.3 引入本次测量。
     leftSpeed_ = 0.7f * leftSpeed_ + 0.3f * leftCount;
     rightSpeed_ = 0.7f * rightSpeed_ + 0.3f * rightCount;
@@ -223,12 +247,13 @@ void BalanceController::updateOuterLoops(const uint32_t nowMs) {
     // 前面的负号由当前 IMU 正方向和电机安装方向决定：若推车后的回正方向完全相反，
     // 应先核对编码器符号和电机方向，而不是盲目改变 PID 增益符号。
     speedReference_ = targetSpeed_;
-    const float speedError = speedReference_ - speed_;
-    targetAngle_ = constrain(
-        -parameters_.speedKp * speedError,
-        -kMaximumTargetAngle,
-        kMaximumTargetAngle
-    );
+    speedPid_.setKp(-parameters_.speedKp);
+    speedPid_.setKi(-parameters_.speedKi);
+    speedPid_.setKd(-parameters_.speedKd);
+    speedPid_.setTarget(speedReference_);
+    speedPid_.setActual(speed_);
+    speedPid_.update(dt);
+    targetAngle_ = speedPid_.output();
 }
 
 void BalanceController::resetMotionState() {
@@ -241,7 +266,14 @@ void BalanceController::resetMotionState() {
     rightSpeed_ = 0.0f;
     speed_ = 0.0f;
     speedReference_ = 0.0f;
-    lastSpeedUpdateMs_ = millis();
+    targetAngle_ = 0.0f;
+    targetYawRate_ = 0.0f;
+    turnOutput_ = 0.0f;
+    anglePid_.reset();
+    speedPid_.reset();
+    turnPid_.reset();
+    lastOuterLoopUpdateMs_ = millis();
+    lastControlUpdateUs_ = micros();
 }
 
 void BalanceController::loadGyroOffsets() {
@@ -256,7 +288,7 @@ void BalanceController::loadGyroOffsets() {
             preferences.getFloat("oz", kDefaultGyroZOffset);
     preferences.end();
 
-    imu_.setGyroOffsets(offsetX, offsetY, offsetZ);
+    mpu6050_.setGyroOffsets(offsetX, offsetY, offsetZ);
     Serial.printf(
         "[GYRO] offsets ox=%.3f oy=%.3f oz=%.3f\n",
         offsetX,
@@ -268,9 +300,9 @@ void BalanceController::loadGyroOffsets() {
 void BalanceController::saveGyroOffsets() {
     Preferences preferences;
     preferences.begin("gyro", false);
-    preferences.putFloat("ox", imu_.gyroXOffset());
-    preferences.putFloat("oy", imu_.gyroYOffset());
-    preferences.putFloat("oz", imu_.gyroZOffset());
+    preferences.putFloat("ox", mpu6050_.gyroXOffset());
+    preferences.putFloat("oy", mpu6050_.gyroYOffset());
+    preferences.putFloat("oz", mpu6050_.gyroZOffset());
     preferences.end();
 }
 
@@ -281,8 +313,8 @@ void BalanceController::runGyroCalibration() {
     targetAngle_ = 0.0f;
     motors_.stop();
 
-    if (!imu_.calibrateGyro()) {
-        imuReady_ = false;
+    if (!mpu6050_.calibrateGyro()) {
+        mpu6050Ready_ = false;
         Serial.println("[GYRO] calibration failed because of an I2C error");
         resetMotionState();
         return;
@@ -290,153 +322,36 @@ void BalanceController::runGyroCalibration() {
     saveGyroOffsets();
     resetMotionState();
     ble_.notifyCalibrationDone(
-        imu_.gyroXOffset(),
-        imu_.gyroYOffset(),
-        imu_.gyroZOffset()
+        mpu6050_.gyroXOffset(),
+        mpu6050_.gyroYOffset(),
+        mpu6050_.gyroZOffset()
     );
 }
 
-void BalanceController::loadDeadZones() {
-    Preferences preferences;
-    preferences.begin("motor", true);
-    parameters_.leftMotorDeadZone = preferences.getInt(
-        "ldz",
-        parameters_.leftMotorDeadZone
-    );
-    parameters_.rightMotorDeadZone = preferences.getInt(
-        "rdz",
-        parameters_.rightMotorDeadZone
-    );
-    preferences.end();
-    Serial.printf(
-        "[DZ] loaded left=%d right=%d\n",
-        parameters_.leftMotorDeadZone,
-        parameters_.rightMotorDeadZone
-    );
-}
-
-void BalanceController::saveDeadZones() const {
-    Preferences preferences;
-    preferences.begin("motor", false);
-    preferences.putInt("ldz", parameters_.leftMotorDeadZone);
-    preferences.putInt("rdz", parameters_.rightMotorDeadZone);
-    preferences.end();
-}
-
-bool BalanceController::detectDeadZoneOnce(
-    const int round,
-    int &leftResult,
-    int &rightResult
-) {
-    // 标定前必须让车轮悬空。算法从 0 逐级增加原始 PWM，
-    // 当 100 ms 内累计至少 10 个编码器脉冲时，认为对应电机已经可靠起转。
-    int foundLeft = -1;
-    int foundRight = -1;
-    Serial.printf("[DZ] round %d started\n", round);
-
-    for (int pwm = 0; pwm <= kMaximumPwm; ++pwm) {
-        int32_t leftCount = 0;
-        int32_t rightCount = 0;
-        // 每一级测试前清除旧脉冲；driveRaw 不叠加已有死区，否则测不到真实起转点。
-        encoders_.readAndReset(leftCount, rightCount);
-        motors_.driveRaw(pwm, pwm);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        encoders_.readAndReset(leftCount, rightCount);
-
-        if (foundLeft < 0 && abs(leftCount) >= 10) {
-            foundLeft = pwm;
-        }
-        if (foundRight < 0 && abs(rightCount) >= 10) {
-            foundRight = pwm;
-        }
-        if (foundLeft >= 0 && foundRight >= 0) {
-            break;
-        }
-    }
-
-    motors_.stop();
-    leftResult = foundLeft;
-    rightResult = foundRight;
-    Serial.printf(
-        "[DZ] round %d finished left=%d right=%d\n",
-        round,
-        foundLeft,
-        foundRight
-    );
-    return foundLeft >= 0 && foundRight >= 0;
-}
-
-void BalanceController::runDeadZoneDetection() {
-    // 多次测量取均值，减小摩擦、齿轮啮合位置和电池电压造成的单次误差。
-    constexpr int kDetectionRounds = 3;
-    const int previousLeft = parameters_.leftMotorDeadZone;
-    const int previousRight = parameters_.rightMotorDeadZone;
-
-    motionCommand_.clear();
-    targetSpeed_ = 0.0f;
-    targetAngle_ = 0.0f;
-    motors_.stop();
-
-    int leftSum = 0;
-    int rightSum = 0;
-    int successfulRounds = 0;
-    for (int round = 1; round <= kDetectionRounds; ++round) {
-        int leftResult = -1;
-        int rightResult = -1;
-        if (detectDeadZoneOnce(round, leftResult, rightResult)) {
-            leftSum += leftResult;
-            rightSum += rightResult;
-            ++successfulRounds;
-        }
-        vTaskDelay(pdMS_TO_TICKS(400));
-    }
-
-    if (successfulRounds > 0) {
-        // 加上 successfulRounds / 2 实现整数四舍五入，而不是直接向下取整。
-        parameters_.leftMotorDeadZone =
-                (leftSum + successfulRounds / 2) / successfulRounds;
-        parameters_.rightMotorDeadZone =
-                (rightSum + successfulRounds / 2) / successfulRounds;
-        saveDeadZones();
-    } else {
-        // 检测完全失败时保留原值，避免把无效的 -1 写入控制参数。
-        parameters_.leftMotorDeadZone =
-                previousLeft > 0 ? previousLeft : 164;
-        parameters_.rightMotorDeadZone =
-                previousRight > 0 ? previousRight : 164;
-    }
-
-    ble_.notifyDeadZoneDone(
-        parameters_.leftMotorDeadZone,
-        parameters_.rightMotorDeadZone
-    );
-    resetMotionState();
-}
-
-void BalanceController::runStatusLedLoop() {
+void BalanceController::runStatusLedLoop() const {
     bool blinkOn = false;
     uint32_t lastBlinkMs = 0;
     float breathPhase = 0.0f;
-    constexpr uint32_t kBlinkIntervalMs = 350;
-    constexpr float kBreathStep = 0.06f;
-    constexpr float kTwoPi = 6.2831853f;
 
     while (true) {
         if (ble_.isConnected()) {
+            constexpr float kBreathStep = 0.06f;
+            constexpr float kTwoPi = 6.2831853f;
             // 已连接：使用正弦曲线生成平滑呼吸效果。
             breathPhase += kBreathStep;
             if (breathPhase > kTwoPi) {
                 breathPhase -= kTwoPi;
             }
             const float wave = 0.5f * (1.0f + sinf(breathPhase));
-            statusLed_.setDuty(static_cast<int>(20.0f + wave * 235.0f));
+            StatusLed::setDuty(static_cast<int>(20.0f + wave * 235.0f));
         } else {
+            constexpr uint32_t kBlinkIntervalMs = 350;
             // 未连接：固定周期闪烁，提示设备仍在广播并等待连接。
             const uint32_t now = millis();
             if (now - lastBlinkMs >= kBlinkIntervalMs) {
                 lastBlinkMs = now;
                 blinkOn = !blinkOn;
-                statusLed_.setDuty(
+                StatusLed::setDuty(
                     blinkOn ? kMaximumPwm : 0
                 );
             }

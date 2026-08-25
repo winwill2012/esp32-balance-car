@@ -17,11 +17,13 @@ constexpr char kStatusUuid[] = "0000fff2-0000-1000-8000-00805f9b34fb";
 
 constexpr float kMinAngleOffset = -5.0f;
 constexpr float kMaxAngleOffset = 5.0f;
+
 BleConfigService::ServerCallbacks::ServerCallbacks(BleConfigService &owner)
-    : owner_(owner) {}
+    : owner_(owner) {
+}
 
 void BleConfigService::ServerCallbacks::onConnect(BLEServer *server) {
-    (void)server;
+    (void) server;
     owner_.connected_ = true;
     // 每次连接都从 NVS 恢复，确保小程序读到的是已保存参数，而不是上次遗留的临时值。
     owner_.restorePersistedParameters();
@@ -29,7 +31,7 @@ void BleConfigService::ServerCallbacks::onConnect(BLEServer *server) {
 }
 
 void BleConfigService::ServerCallbacks::onDisconnect(BLEServer *server) {
-    (void)server;
+    (void) server;
     owner_.connected_ = false;
     // 断连立即停车；未执行 SAVE 的临时调参也回滚到 NVS/出厂值。
     owner_.clearMotionCommand();
@@ -40,7 +42,8 @@ void BleConfigService::ServerCallbacks::onDisconnect(BLEServer *server) {
 }
 
 BleConfigService::CommandCallbacks::CommandCallbacks(BleConfigService &owner)
-    : owner_(owner) {}
+    : owner_(owner) {
+}
 
 void BleConfigService::CommandCallbacks::onWrite(
     BLECharacteristic *characteristic
@@ -52,7 +55,8 @@ void BleConfigService::CommandCallbacks::onWrite(
 }
 
 BleConfigService::BleConfigService()
-    : serverCallbacks_(*this), commandCallbacks_(*this) {}
+    : serverCallbacks_(*this), commandCallbacks_(*this) {
+}
 
 void BleConfigService::begin(
     ControlParameters &parameters,
@@ -76,30 +80,18 @@ void BleConfigService::begin(
     commandCharacteristic_ = service->createCharacteristic(
         kCommandUuid,
         BLECharacteristic::PROPERTY_WRITE |
-            BLECharacteristic::PROPERTY_WRITE_NR
+        BLECharacteristic::PROPERTY_WRITE_NR
     );
     commandCharacteristic_->setCallbacks(&commandCallbacks_);
 
     statusCharacteristic_ = service->createCharacteristic(
         kStatusUuid,
         BLECharacteristic::PROPERTY_READ |
-            BLECharacteristic::PROPERTY_NOTIFY
+        BLECharacteristic::PROPERTY_NOTIFY
     );
     statusCharacteristic_->addDescriptor(new BLE2902());
 
-    char initialValue[128];
-    snprintf(
-        initialValue,
-        sizeof(initialValue),
-        "KP=%.3f,KD=%.3f,KV=%.4f,A0=%.2f,LDZ=%d,RDZ=%d",
-        parameters_->angleKp,
-        parameters_->angleKd,
-        parameters_->speedKp,
-        parameters_->angleOffset,
-        parameters_->leftMotorDeadZone,
-        parameters_->rightMotorDeadZone
-    );
-    statusCharacteristic_->setValue(initialValue);
+    statusCharacteristic_->setValue("READY=1");
 
     service->start();
     BLEAdvertising *advertising = BLEDevice::getAdvertising();
@@ -110,15 +102,19 @@ void BleConfigService::begin(
     BLEDevice::startAdvertising();
 
     Serial.printf(
-        "[BLE] 广播中：%s kp=%.3f kd=%.3f kv=%.4f a0=%.2f "
-        "ldz=%d rdz=%d\n",
+        "[BLE] 广播中：%s angle=%.3f/%.3f/%.3f "
+        "speed=%.4f/%.4f/%.4f turn=%.3f/%.3f/%.3f a0=%.2f\n",
         kDeviceName,
         parameters_->angleKp,
+        parameters_->angleKi,
         parameters_->angleKd,
         parameters_->speedKp,
-        parameters_->angleOffset,
-        parameters_->leftMotorDeadZone,
-        parameters_->rightMotorDeadZone
+        parameters_->speedKi,
+        parameters_->speedKd,
+        parameters_->turnKp,
+        parameters_->turnKi,
+        parameters_->turnKd,
+        parameters_->angleOffset
     );
 }
 
@@ -132,7 +128,7 @@ void BleConfigService::notifyStatus(
     const int pwm,
     const float leftSpeed,
     const float rightSpeed
-) {
+) const {
     if (!connected_ || statusCharacteristic_ == nullptr) {
         return;
     }
@@ -175,44 +171,12 @@ void BleConfigService::notifyCalibrationDone(
     statusCharacteristic_->notify();
 }
 
-void BleConfigService::notifyDeadZoneDone(
-    const int leftDeadZone,
-    const int rightDeadZone
-) {
-    if (parameters_ != nullptr) {
-        parameters_->leftMotorDeadZone = leftDeadZone;
-        parameters_->rightMotorDeadZone = rightDeadZone;
-    }
-    if (!connected_ || statusCharacteristic_ == nullptr) {
-        return;
-    }
-
-    char status[64];
-    snprintf(
-        status,
-        sizeof(status),
-        "DZ=1,LDZ=%d,RDZ=%d",
-        leftDeadZone,
-        rightDeadZone
-    );
-    statusCharacteristic_->setValue(status);
-    statusCharacteristic_->notify();
-}
-
 bool BleConfigService::consumeGyroCalibrationRequest() {
     if (!gyroCalibrationRequested_) {
         return false;
     }
     // 消费即清零，保证一条 GCAL 命令只执行一次校准。
     gyroCalibrationRequested_ = false;
-    return true;
-}
-
-bool BleConfigService::consumeDeadZoneRequest() {
-    if (!deadZoneRequested_) {
-        return false;
-    }
-    deadZoneRequested_ = false;
     return true;
 }
 
@@ -245,6 +209,44 @@ void BleConfigService::applyBalanceParameters(
     );
 }
 
+void BleConfigService::applyPidParameters(
+    const float angleKp,
+    const float angleKi,
+    const float angleKd,
+    const float speedKp,
+    const float speedKi,
+    const float speedKd,
+    const float turnKp,
+    const float turnKi,
+    const float turnKd
+) {
+    if (parameters_ == nullptr) {
+        return;
+    }
+    parameters_->angleKp = angleKp;
+    parameters_->angleKi = angleKi;
+    parameters_->angleKd = angleKd;
+    parameters_->speedKp = speedKp;
+    parameters_->speedKi = speedKi;
+    parameters_->speedKd = speedKd;
+    parameters_->turnKp = turnKp;
+    parameters_->turnKi = turnKi;
+    parameters_->turnKd = turnKd;
+    Serial.printf(
+        "[BLE] PID angle=%.3f/%.3f/%.3f speed=%.4f/%.4f/%.4f "
+        "turn=%.3f/%.3f/%.3f\n",
+        angleKp,
+        angleKi,
+        angleKd,
+        speedKp,
+        speedKi,
+        speedKd,
+        turnKp,
+        turnKi,
+        turnKd
+    );
+}
+
 void BleConfigService::applyAngleOffset(float angleOffset) {
     if (parameters_ == nullptr) {
         return;
@@ -259,19 +261,32 @@ void BleConfigService::persistParameters() {
         return;
     }
 
-    // 仅保存控制参数。电机死区由独立的 motor NVS 空间负责，避免职责交叉。
     Preferences preferences;
     preferences.begin("pid", false);
     preferences.putFloat("kp", parameters_->angleKp);
+    preferences.putFloat("ki", parameters_->angleKi);
     preferences.putFloat("kd", parameters_->angleKd);
     preferences.putFloat("kv", parameters_->speedKp);
+    preferences.putFloat("skp", parameters_->speedKp);
+    preferences.putFloat("ski", parameters_->speedKi);
+    preferences.putFloat("skd", parameters_->speedKd);
+    preferences.putFloat("tkp", parameters_->turnKp);
+    preferences.putFloat("tki", parameters_->turnKi);
+    preferences.putFloat("tkd", parameters_->turnKd);
     preferences.putFloat("a0", parameters_->angleOffset);
     preferences.end();
     Serial.printf(
-        "[BLE] 参数已保存 kp=%.3f kd=%.3f kv=%.4f a0=%.2f\n",
+        "[BLE] 参数已保存 angle=%.3f/%.3f/%.3f "
+        "speed=%.4f/%.4f/%.4f turn=%.3f/%.3f/%.3f a0=%.2f\n",
         parameters_->angleKp,
+        parameters_->angleKi,
         parameters_->angleKd,
         parameters_->speedKp,
+        parameters_->speedKi,
+        parameters_->speedKd,
+        parameters_->turnKp,
+        parameters_->turnKi,
+        parameters_->turnKd,
         parameters_->angleOffset
     );
 }
@@ -285,37 +300,59 @@ void BleConfigService::restorePersistedParameters() {
     preferences.begin("pid", true);
     // 兼容旧固件：只要任意历史键存在就逐项读取，缺失的新键使用代码默认值。
     const bool hasSavedParameters =
-        preferences.isKey("kp") ||
-        preferences.isKey("kd") ||
-        preferences.isKey("kv") ||
-        preferences.isKey("a0");
+            preferences.isKey("kp") ||
+            preferences.isKey("ki") ||
+            preferences.isKey("kd") ||
+            preferences.isKey("kv") ||
+            preferences.isKey("skp") ||
+            preferences.isKey("ski") ||
+            preferences.isKey("skd") ||
+            preferences.isKey("tkp") ||
+            preferences.isKey("tki") ||
+            preferences.isKey("tkd") ||
+            preferences.isKey("a0");
 
     if (hasSavedParameters) {
         parameters_->angleKp =
-            preferences.getFloat("kp", factoryParameters_.angleKp);
+                preferences.getFloat("kp", factoryParameters_.angleKp);
+        parameters_->angleKi =
+                preferences.getFloat("ki", factoryParameters_.angleKi);
         parameters_->angleKd =
-            preferences.getFloat("kd", factoryParameters_.angleKd);
-        parameters_->speedKp =
-            preferences.getFloat("kv", factoryParameters_.speedKp);
+                preferences.getFloat("kd", factoryParameters_.angleKd);
+        parameters_->speedKp = preferences.isKey("skp")
+                                   ? preferences.getFloat("skp", factoryParameters_.speedKp)
+                                   : preferences.getFloat("kv", factoryParameters_.speedKp);
+        parameters_->speedKi =
+                preferences.getFloat("ski", factoryParameters_.speedKi);
+        parameters_->speedKd =
+                preferences.getFloat("skd", factoryParameters_.speedKd);
+        parameters_->turnKp =
+                preferences.getFloat("tkp", factoryParameters_.turnKp);
+        parameters_->turnKi =
+                preferences.getFloat("tki", factoryParameters_.turnKi);
+        parameters_->turnKd =
+                preferences.getFloat("tkd", factoryParameters_.turnKd);
         parameters_->angleOffset = constrain(
             preferences.getFloat("a0", factoryParameters_.angleOffset),
             kMinAngleOffset,
             kMaxAngleOffset
         );
         Serial.printf(
-            "[BLE] 从 NVS 恢复 kp=%.3f kd=%.3f kv=%.4f a0=%.2f\n",
+            "[BLE] 从 NVS 恢复 angle=%.3f/%.3f/%.3f "
+            "speed=%.4f/%.4f/%.4f turn=%.3f/%.3f/%.3f a0=%.2f\n",
             parameters_->angleKp,
+            parameters_->angleKi,
             parameters_->angleKd,
             parameters_->speedKp,
+            parameters_->speedKi,
+            parameters_->speedKd,
+            parameters_->turnKp,
+            parameters_->turnKi,
+            parameters_->turnKd,
             parameters_->angleOffset
         );
     } else {
-        // 恢复 PID 出厂值时保留已由电机模块加载的左右死区。
-        const int leftDeadZone = parameters_->leftMotorDeadZone;
-        const int rightDeadZone = parameters_->rightMotorDeadZone;
         *parameters_ = factoryParameters_;
-        parameters_->leftMotorDeadZone = leftDeadZone;
-        parameters_->rightMotorDeadZone = rightDeadZone;
         Serial.println("[BLE] 无 PID NVS 记录，使用代码默认参数");
     }
     preferences.end();
@@ -330,14 +367,27 @@ void BleConfigService::replyParameters(const char *prefix) {
     snprintf(
         status,
         sizeof(status),
-        "%sKP=%.3f,KD=%.3f,KV=%.4f,A0=%.2f,LDZ=%d,RDZ=%d",
+        "%sAKP=%.3f,AKI=%.3f,AKD=%.3f,SKP=%.4f,SKI=%.4f,SKD=%.4f,A0=%.2f",
         prefix == nullptr ? "" : prefix,
         parameters_->angleKp,
+        parameters_->angleKi,
         parameters_->angleKd,
         parameters_->speedKp,
-        parameters_->angleOffset,
-        parameters_->leftMotorDeadZone,
-        parameters_->rightMotorDeadZone
+        parameters_->speedKi,
+        parameters_->speedKd,
+        parameters_->angleOffset
+    );
+    statusCharacteristic_->setValue(status);
+    statusCharacteristic_->notify();
+    delay(15);
+    snprintf(
+        status,
+        sizeof(status),
+        "%sTKP=%.3f,TKI=%.3f,TKD=%.3f",
+        prefix == nullptr ? "" : prefix,
+        parameters_->turnKp,
+        parameters_->turnKi,
+        parameters_->turnKd
     );
     statusCharacteristic_->setValue(status);
     statusCharacteristic_->notify();
@@ -345,14 +395,14 @@ void BleConfigService::replyParameters(const char *prefix) {
 
 void BleConfigService::handleCommand(const std::string &rawCommand) {
     // 协议命令（不区分大小写）：
-    // GET / SAVE / GCAL / DZCAL
-    // SET=KP,KD,KV[,A0]，并兼容旧版仅发送 KP,KD 的格式
-    // KP= / KD= / KV= / A0= / SPD= / TRN= / SLW=
+    // GET / SAVE / GCAL
+    // PID=AKP,AKI,AKD,SKP,SKI,SKD,TKP,TKI,TKD[,A0]
+    // SET=KP,KD,KV[,A0] 和 KP/KD/KV 单项指令保留旧版兼容。
     char command[128];
     const size_t length =
-        rawCommand.size() < sizeof(command) - 1
-            ? rawCommand.size()
-            : sizeof(command) - 1;
+            rawCommand.size() < sizeof(command) - 1
+                ? rawCommand.size()
+                : sizeof(command) - 1;
     memcpy(command, rawCommand.data(), length);
     command[length] = '\0';
 
@@ -385,13 +435,28 @@ void BleConfigService::handleCommand(const std::string &rawCommand) {
         }
         return;
     }
-    if (strncmp(command, "DZCAL", 5) == 0) {
-        clearMotionCommand();
-        deadZoneRequested_ = true;
-        if (statusCharacteristic_ != nullptr) {
-            statusCharacteristic_->setValue("DZ=0");
-            statusCharacteristic_->notify();
+    if (strncmp(command, "PID=", 4) == 0) {
+        float values[10] = {};
+        const int matched = sscanf(
+            command + 4,
+            "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+            &values[0], &values[1], &values[2],
+            &values[3], &values[4], &values[5],
+            &values[6], &values[7], &values[8],
+            &values[9]
+        );
+        if (matched < 9) {
+            return;
         }
+        applyPidParameters(
+            values[0], values[1], values[2],
+            values[3], values[4], values[5],
+            values[6], values[7], values[8]
+        );
+        if (matched >= 10) {
+            applyAngleOffset(values[9]);
+        }
+        replyParameters("OK ");
         return;
     }
 
@@ -444,12 +509,47 @@ void BleConfigService::handleCommand(const std::string &rawCommand) {
         replyParameters("OK ");
         return;
     }
+    if (strncmp(command, "KI=", 3) == 0) {
+        parameters_->angleKi = static_cast<float>(atof(command + 3));
+        replyParameters("OK ");
+        return;
+    }
     if (strncmp(command, "KV=", 3) == 0) {
         applyBalanceParameters(
             parameters_->angleKp,
             parameters_->angleKd,
             static_cast<float>(atof(command + 3))
         );
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "SKP=", 4) == 0) {
+        parameters_->speedKp = static_cast<float>(atof(command + 4));
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "SKI=", 4) == 0) {
+        parameters_->speedKi = static_cast<float>(atof(command + 4));
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "SKD=", 4) == 0) {
+        parameters_->speedKd = static_cast<float>(atof(command + 4));
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "TKP=", 4) == 0) {
+        parameters_->turnKp = static_cast<float>(atof(command + 4));
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "TKI=", 4) == 0) {
+        parameters_->turnKi = static_cast<float>(atof(command + 4));
+        replyParameters("OK ");
+        return;
+    }
+    if (strncmp(command, "TKD=", 4) == 0) {
+        parameters_->turnKd = static_cast<float>(atof(command + 4));
         replyParameters("OK ");
         return;
     }
@@ -463,12 +563,14 @@ void BleConfigService::handleCommand(const std::string &rawCommand) {
         return;
     }
     if (strncmp(command, "TRN=", 4) == 0 && motionCommand_ != nullptr) {
-        motionCommand_->turnPwm = static_cast<float>(atof(command + 4));
+        // TRN 的单位直接为 °/s，不在 BLE 层做比例换算。
+        motionCommand_->targetYawRate = static_cast<float>(atof(command + 4));
+        motionCommand_->lastTurnCommandMs = millis();
         return;
     }
     if (strncmp(command, "SLW=", 4) == 0) {
         parameters_->speedSlew =
-            max(1.0f, static_cast<float>(atof(command + 4)));
+                max(1.0f, static_cast<float>(atof(command + 4)));
         return;
     }
 

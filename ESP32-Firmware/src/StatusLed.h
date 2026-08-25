@@ -3,8 +3,9 @@
 
 class StatusLed {
 public:
-    void begin() const;
-    void setDuty(int duty) const;
+    static void begin();
+
+    static void setDuty(int duty);
 };
 
 #endif

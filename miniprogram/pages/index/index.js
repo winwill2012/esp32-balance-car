@@ -4,15 +4,27 @@ const PARAM_LIMITS = {
   a0: { min: -5, max: 5, digits: 2 },
   // 10 位 PWM（0–1023）约为原 8 位的 4 倍，Kp/Kd 同步放大
   kp: { min: 0, max: 300, digits: 2 },
+  ki: { min: 0, max: 5, digits: 4 },
   kd: { min: 0, max: 20, digits: 2 },
-  kv: { min: 0, max: 2, digits: 4 }
+  skp: { min: 0, max: 5, digits: 4 },
+  ski: { min: 0, max: 5, digits: 4 },
+  skd: { min: 0, max: 10, digits: 4 },
+  tkp: { min: 0, max: 10, digits: 3 },
+  tki: { min: 0, max: 5, digits: 4 },
+  tkd: { min: 0, max: 10, digits: 4 }
 }
 
 const PARAM_DEFAULTS = {
   a0: 0,
   kp: 90,
-  kd: 2,
-  kv: 0.58
+  ki: 0,
+  kd: 4,
+  skp: 0.77,
+  ski: 0,
+  skd: 0,
+  tkp: 2.3,
+  tki: 0.2,
+  tkd: 0
 }
 
 Page({
@@ -20,13 +32,18 @@ Page({
     connected: false,
     a0: PARAM_DEFAULTS.a0,
     kp: PARAM_DEFAULTS.kp,
+    ki: PARAM_DEFAULTS.ki,
     kd: PARAM_DEFAULTS.kd,
-    kv: PARAM_DEFAULTS.kv,
+    skp: PARAM_DEFAULTS.skp,
+    ski: PARAM_DEFAULTS.ski,
+    skd: PARAM_DEFAULTS.skd,
+    tkp: PARAM_DEFAULTS.tkp,
+    tki: PARAM_DEFAULTS.tki,
+    tkd: PARAM_DEFAULTS.tkd,
     angleText: '--',
     batteryText: '--',
     pwmText: '--',
-    leftDzText: '--',
-    rightDzText: '--',
+    outerLoopTab: 'speed',
     lastMsg: '',
     calibrating: false,
     calPhase: '',
@@ -37,9 +54,7 @@ Page({
   _unsub: null,
   _applyTimer: null,
   _calDone: false,
-  _dzDone: false,
   _lastCalDoneSeq: 0,
-  _lastDzDoneSeq: 0,
 
   onShow() {
     if (this._unsub) return
@@ -48,22 +63,22 @@ Page({
         connected: s.connected,
         a0: s.a0,
         kp: s.kp,
+        ki: s.ki,
         kd: s.kd,
-        kv: s.kv,
+        skp: s.skp,
+        ski: s.ski,
+        skd: s.skd,
+        tkp: s.tkp,
+        tki: s.tki,
+        tkd: s.tkd,
         angleText: s.angleText,
         batteryText: s.batteryText,
         pwmText: s.pwmText,
-        leftDzText: s.leftDzText,
-        rightDzText: s.rightDzText,
         lastMsg: s.lastMsg
       })
       if (s.calDoneSeq && s.calDoneSeq !== this._lastCalDoneSeq) {
         this._lastCalDoneSeq = s.calDoneSeq
         this._calDone = true
-      }
-      if (s.dzDoneSeq && s.dzDoneSeq !== this._lastDzDoneSeq) {
-        this._lastDzDoneSeq = s.dzDoneSeq
-        this._dzDone = true
       }
       if (!s.connected && this.data.calibrating) {
         this.finishBusy(false, '已断开，操作中断')
@@ -106,8 +121,8 @@ Page({
     this.updateParamFromInput('kd', e.detail.value)
   },
 
-  onKvInput(e) {
-    this.updateParamFromInput('kv', e.detail.value)
+  onParamInput(e) {
+    this.updateParamFromInput(e.currentTarget.dataset.param, e.detail.value)
   },
 
   onA0Changing(e) {
@@ -122,8 +137,9 @@ Page({
     session.updateParams({ kd: Number(e.detail.value) })
   },
 
-  onKvChanging(e) {
-    session.updateParams({ kv: Number(e.detail.value) })
+  onParamChanging(e) {
+    const param = e.currentTarget.dataset.param
+    session.updateParams({ [param]: Number(e.detail.value) })
   },
 
   onA0Change(e) {
@@ -141,8 +157,9 @@ Page({
     this.scheduleApply()
   },
 
-  onKvChange(e) {
-    session.updateParams({ kv: Number(e.detail.value) })
+  onParamChange(e) {
+    const param = e.currentTarget.dataset.param
+    session.updateParams({ [param]: Number(e.detail.value) })
     this.scheduleApply()
   },
 
@@ -188,6 +205,12 @@ Page({
     })
   },
 
+  onOuterLoopTab(e) {
+    const tab = e.currentTarget.dataset.tab
+    if (tab !== 'speed' && tab !== 'turn') return
+    this.setData({ outerLoopTab: tab })
+  },
+
   scheduleApply() {
     if (!this.data.connected || this.data.calibrating) return
     this.clearApplyTimer()
@@ -202,11 +225,19 @@ Page({
     const s = session.getState()
     const a0 = session.round(Number(s.a0), 2)
     const kp = session.round(Number(s.kp), 2)
+    const ki = session.round(Number(s.ki), 4)
     const kd = session.round(Number(s.kd), 2)
-    const kv = session.round(Number(s.kv), 4)
+    const skp = session.round(Number(s.skp), 4)
+    const ski = session.round(Number(s.ski), 4)
+    const skd = session.round(Number(s.skd), 4)
+    const tkp = session.round(Number(s.tkp), 4)
+    const tki = session.round(Number(s.tki), 4)
+    const tkd = session.round(Number(s.tkd), 4)
     session.setSuppressStatus(true)
     try {
-      await session.sendCmd(`SET=${kp},${kd},${kv},${a0}`)
+      await session.sendCmd(
+        `PID=${kp},${ki},${kd},${skp},${ski},${skd},${tkp},${tki},${tkd},${a0}`
+      )
     } catch (err) {
       wx.showToast({ title: '下发失败', icon: 'none' })
     }
@@ -318,83 +349,6 @@ Page({
       this.finishCalib(true)
     } else {
       this.finishBusy(false, '校准超时，请重试')
-    }
-  },
-
-  async onDeadZoneDetect() {
-    if (!this.data.connected || this.data.calibrating) return
-
-    this._dzDone = false
-    this.setData({
-      calibrating: true,
-      calPhase: 'prepare',
-      calTip: '请让小车轮子悬空',
-      calCount: 3
-    })
-
-    for (let i = 3; i >= 1; i--) {
-      if (!this.data.calibrating) return
-      this.setData({ calCount: i })
-      await this.sleep(1000)
-      if (!this.data.connected) {
-        this.finishBusy(false, '已断开，检测中断')
-        return
-      }
-    }
-
-    this.setData({
-      calPhase: 'running',
-      calTip: '检测中（共 3 次取平均），请保持轮子悬空',
-      calCount: 90
-    })
-
-    try {
-      await session.sendCmd('DZCAL')
-    } catch (err) {
-      this.finishBusy(false, '检测指令发送失败')
-      return
-    }
-
-    // 固件会连续扫描 3 次再平均，预留更长等待
-    for (let i = 90; i >= 1; i--) {
-      if (!this.data.calibrating) return
-      this.setData({ calCount: i })
-      if (this._dzDone) break
-      await this.sleep(1000)
-      if (!this.data.connected) {
-        this.finishBusy(false, '已断开，检测中断')
-        return
-      }
-    }
-
-    const waitUntil = Date.now() + 5000
-    while (!this._dzDone && Date.now() < waitUntil) {
-      if (!this.data.calibrating) return
-      await this.sleep(200)
-      if (!this.data.connected) {
-        this.finishBusy(false, '已断开，检测中断')
-        return
-      }
-    }
-
-    if (this._dzDone) {
-      const s = session.getState()
-      this.setData({
-        calPhase: 'done',
-        calTip: '检测完成',
-        calCount: 0,
-        leftDzText: s.leftDzText,
-        rightDzText: s.rightDzText
-      })
-      await this.sleep(600)
-      this.finishBusy(
-        true,
-        '',
-        '死区检测完成',
-        `左电机死区 PWM：${s.leftDzText}\n右电机死区 PWM：${s.rightDzText}\n已取 3 次平均值并保存到芯片。`
-      )
-    } else {
-      this.finishBusy(false, '检测超时，请重试')
     }
   },
 

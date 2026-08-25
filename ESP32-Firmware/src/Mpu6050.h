@@ -25,10 +25,11 @@ public:
 
     float angleX() const { return angleX_; }
     float gyroX() const { return gyroX_; }
+    float gyroZ() const { return gyroZ_; }
 
 private:
-    bool writeRegister(uint8_t reg, uint8_t value);
-    bool readRegisters(uint8_t firstReg, uint8_t *data, size_t length);
+    bool writeRegister(uint8_t reg, uint8_t value) const;
+    bool readRegisters(uint8_t firstReg, uint8_t *data, size_t length) const;
     bool readRawSample(
         int16_t &accX,
         int16_t &accY,
@@ -36,7 +37,7 @@ private:
         int16_t &gyroX,
         int16_t &gyroY,
         int16_t &gyroZ
-    );
+    ) const;
 
     TwoWire &wire_;
     uint8_t address_;
@@ -45,6 +46,7 @@ private:
     float gyroYOffset_ = 0.0f;
     float gyroZOffset_ = 0.0f;
     float gyroX_ = 0.0f;
+    float gyroZ_ = 0.0f;
     float angleX_ = 0.0f;
     uint32_t previousUpdateUs_ = 0;
     bool filterInitialized_ = false;

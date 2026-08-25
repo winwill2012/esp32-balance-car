@@ -6,8 +6,14 @@ const ble = require('./ble.js')
 const DEFAULT_PARAMS = {
   a0: 0,
   kp: 90,
-  kd: 2,
-  kv: 0.58
+  ki: 0,
+  kd: 4,
+  skp: 0.77,
+  ski: 0,
+  skd: 0,
+  tkp: 2.3,
+  tki: 0.2,
+  tkd: 0
 }
 
 const state = {
@@ -26,14 +32,17 @@ const state = {
   rightSpeedText: '--',
   pwmText: '--',
   calDoneSeq: 0,
-  dzDoneSeq: 0,
   lastMsg: '',
   a0: DEFAULT_PARAMS.a0,
   kp: DEFAULT_PARAMS.kp,
+  ki: DEFAULT_PARAMS.ki,
   kd: DEFAULT_PARAMS.kd,
-  kv: DEFAULT_PARAMS.kv,
-  leftDzText: '--',
-  rightDzText: '--'
+  skp: DEFAULT_PARAMS.skp,
+  ski: DEFAULT_PARAMS.ski,
+  skd: DEFAULT_PARAMS.skd,
+  tkp: DEFAULT_PARAMS.tkp,
+  tki: DEFAULT_PARAMS.tki,
+  tkd: DEFAULT_PARAMS.tkd
 }
 
 const listeners = []
@@ -95,8 +104,14 @@ function bindConnectionListener() {
         // 临时调参仅存在于本次连接；断连后 UI 先回默认，重连 GET 再拉 NVS
         a0: DEFAULT_PARAMS.a0,
         kp: DEFAULT_PARAMS.kp,
+        ki: DEFAULT_PARAMS.ki,
         kd: DEFAULT_PARAMS.kd,
-        kv: DEFAULT_PARAMS.kv
+        skp: DEFAULT_PARAMS.skp,
+        ski: DEFAULT_PARAMS.ski,
+        skd: DEFAULT_PARAMS.skd,
+        tkp: DEFAULT_PARAMS.tkp,
+        tki: DEFAULT_PARAMS.tki,
+        tkd: DEFAULT_PARAMS.tkd
       })
     }
   }
@@ -116,11 +131,19 @@ function bindValueListener() {
     const isTelemetry = parsed.ANG !== undefined
     if (!isTelemetry && !suppressStatus) {
       if (parsed.A0 !== undefined) patch.a0 = round(parsed.A0, 2)
-      if (parsed.KP !== undefined) patch.kp = round(parsed.KP, 2)
-      if (parsed.KD !== undefined) patch.kd = round(parsed.KD, 2)
-      if (parsed.KV !== undefined) patch.kv = round(parsed.KV, 4)
-      if (parsed.LDZ !== undefined) patch.leftDzText = String(Math.round(parsed.LDZ))
-      if (parsed.RDZ !== undefined) patch.rightDzText = String(Math.round(parsed.RDZ))
+      if (parsed.AKP !== undefined) patch.kp = round(parsed.AKP, 3)
+      else if (parsed.KP !== undefined) patch.kp = round(parsed.KP, 3)
+      if (parsed.AKI !== undefined) patch.ki = round(parsed.AKI, 4)
+      else if (parsed.KI !== undefined) patch.ki = round(parsed.KI, 4)
+      if (parsed.AKD !== undefined) patch.kd = round(parsed.AKD, 3)
+      else if (parsed.KD !== undefined) patch.kd = round(parsed.KD, 3)
+      if (parsed.SKP !== undefined) patch.skp = round(parsed.SKP, 4)
+      else if (parsed.KV !== undefined) patch.skp = round(parsed.KV, 4)
+      if (parsed.SKI !== undefined) patch.ski = round(parsed.SKI, 4)
+      if (parsed.SKD !== undefined) patch.skd = round(parsed.SKD, 4)
+      if (parsed.TKP !== undefined) patch.tkp = round(parsed.TKP, 3)
+      if (parsed.TKI !== undefined) patch.tki = round(parsed.TKI, 4)
+      if (parsed.TKD !== undefined) patch.tkd = round(parsed.TKD, 4)
     }
     if (parsed.ANG !== undefined) patch.angleText = parsed.ANG.toFixed(2)
     if (parsed.BAT !== undefined) patch.batteryText = parsed.BAT.toFixed(0) + '%'
@@ -128,12 +151,6 @@ function bindValueListener() {
     if (parsed.RSP !== undefined) patch.rightSpeedText = parsed.RSP.toFixed(1)
     if (parsed.PWM !== undefined) patch.pwmText = parsed.PWM.toFixed(1)
     if (parsed.CAL === 1) patch.calDoneSeq = state.calDoneSeq + 1
-    if (parsed.DZ === 1) {
-      patch.dzDoneSeq = state.dzDoneSeq + 1
-      if (parsed.LDZ !== undefined) patch.leftDzText = String(Math.round(parsed.LDZ))
-      if (parsed.RDZ !== undefined) patch.rightDzText = String(Math.round(parsed.RDZ))
-    }
-
     setState(patch)
   }
   wx.onBLECharacteristicValueChange(valueHandler)
@@ -308,8 +325,14 @@ async function disconnect() {
     pwmText: '--',
     a0: DEFAULT_PARAMS.a0,
     kp: DEFAULT_PARAMS.kp,
+    ki: DEFAULT_PARAMS.ki,
     kd: DEFAULT_PARAMS.kd,
-    kv: DEFAULT_PARAMS.kv,
+    skp: DEFAULT_PARAMS.skp,
+    ski: DEFAULT_PARAMS.ski,
+    skd: DEFAULT_PARAMS.skd,
+    tkp: DEFAULT_PARAMS.tkp,
+    tki: DEFAULT_PARAMS.tki,
+    tkd: DEFAULT_PARAMS.tkd,
     lastMsg: ''
   })
 }
