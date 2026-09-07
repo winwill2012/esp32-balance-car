@@ -71,10 +71,7 @@ bool Mpu6050::update() {
         return false;
     }
 
-    const float accX = rawAccX / kAccelScale;
-    const float accY = rawAccY / kAccelScale;
-    const float accZ = rawAccZ / kAccelScale;
-    const float accelAngleX = atan2f(accY, accZ + fabsf(accX)) *
+    const float accelAngleX = atan2f(rawAccY, rawAccZ) *
                               180.0f / PI;
 
     gyroX_ = rawGyroX / kGyroScale - gyroXOffset_;
